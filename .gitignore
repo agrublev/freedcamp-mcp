@@ -1,0 +1,8 @@
+node_modules
+.env
+.idea
+data
+logs
+session.json
+sessionB.json
+.DS_Store
