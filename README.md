@@ -1,5 +1,7 @@
 # Freedcamp MCP Server
 
+![](./ClaudeDesktop.png)
+
 MCP Server for the [Freedcamp](https://freedcamp.com) API, enabling project management, task tracking, time logging, CRM, and more through Claude and other MCP clients.
 
 ## Setup

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import fs from "fs";
+import  fs from "fs";
 import moment from "moment";
 import path from "path";
 import { fileURLToPath } from "url";

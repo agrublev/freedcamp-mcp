@@ -29,8 +29,17 @@ import * as misc from "./operations/misc.js";
 const apiKey = process.env.FREEDCAMP_API_KEY;
 const apiSecret = process.env.FREEDCAMP_API_SECRET;
 
-if (!apiKey || !apiSecret) {
-  console.error("FREEDCAMP_API_KEY and FREEDCAMP_API_SECRET must be set");
+const missingCreds = [
+  !apiKey && "FREEDCAMP_API_KEY",
+  !apiSecret && "FREEDCAMP_API_SECRET",
+].filter(Boolean);
+
+if (missingCreds.length) {
+  console.error("=== LOGIN ERROR ===");
+  console.error(`Missing required credential env var(s): ${missingCreds.join(", ")}`);
+  console.error("The Freedcamp MCP server cannot authenticate without these.");
+  console.error("Pass them when launching the server, e.g.:");
+  console.error("  FREEDCAMP_API_KEY=xxx FREEDCAMP_API_SECRET=yyy npx freedcamp-mcp-server");
   process.exit(1);
 }
 
