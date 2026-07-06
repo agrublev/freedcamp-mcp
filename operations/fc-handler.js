@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import  fs from "fs";
+import fs from "fs";
 import moment from "moment";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -13,7 +13,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 class FreedcampHandler {
-    constructor(apiKey, apiSecret, baseURL = "https://freedcamp.com/api/v1", { sessionFilePath } = {}) {
+    constructor(
+        apiKey,
+        apiSecret,
+        baseURL = "https://freedcamp.com/api/v1",
+        { sessionFilePath } = {}
+    ) {
         if (!apiKey || !apiSecret) {
             throw new Error("API Key and API Secret are required");
         }
@@ -35,7 +40,7 @@ class FreedcampHandler {
     createClient() {
         const client = axios.create({
             baseURL: this.baseURL,
-            timeout: 20000,
+            timeout: 20000
         });
 
         client.interceptors.request.use((config) => {
@@ -52,7 +57,7 @@ class FreedcampHandler {
                     "X-Freedcamp-API-Token": this.sessionToken,
                     "X-Freedcamp-User-Id": this.userId,
                     ...contentType,
-                    Accept: "application/json",
+                    Accept: "application/json"
                 };
             } else {
                 const timestamp = Math.floor(Date.now() / 1000).toString();
@@ -66,13 +71,13 @@ class FreedcampHandler {
                     ...(config.params || {}),
                     api_key: this.apiKey,
                     timestamp,
-                    hash,
+                    hash
                 };
 
                 config.headers = {
                     ...(config.headers || {}),
                     ...contentType,
-                    Accept: "application/json",
+                    Accept: "application/json"
                 };
             }
 
@@ -99,11 +104,12 @@ class FreedcampHandler {
                     cfg.__retry429 = (cfg.__retry429 || 0) + 1;
                     if (cfg.__retry429 <= 4) {
                         const headerWait = Number(error.response.headers?.["retry-after"]);
-                        const waitMs = Number.isFinite(headerWait) && headerWait > 0
-                            ? headerWait * 1000
-                            : Math.min(30_000, 2_000 * 2 ** (cfg.__retry429 - 1));
+                        const waitMs =
+                            Number.isFinite(headerWait) && headerWait > 0
+                                ? headerWait * 1000
+                                : Math.min(30_000, 2_000 * 2 ** (cfg.__retry429 - 1));
                         console.error(
-                            `Rate-limited (429), retry ${cfg.__retry429}/4 after ${waitMs}ms…`,
+                            `Rate-limited (429), retry ${cfg.__retry429}/4 after ${waitMs}ms…`
                         );
                         await new Promise((r) => setTimeout(r, waitMs));
                         return client.request(cfg);
@@ -111,7 +117,7 @@ class FreedcampHandler {
                 }
 
                 throw error;
-            },
+            }
         );
 
         return client;
@@ -150,11 +156,15 @@ class FreedcampHandler {
                 sessionData: this.sessionData,
                 sessionToken: this.sessionToken,
                 userId: this.userId,
-                lastUpdated: new Date().toISOString(),
+                lastUpdated: new Date().toISOString()
             };
 
             if (this.sessionFilePath) {
-                fs.writeFileSync(this.sessionFilePath, JSON.stringify(dataToSave, null, 2), "utf-8");
+                fs.writeFileSync(
+                    this.sessionFilePath,
+                    JSON.stringify(dataToSave, null, 2),
+                    "utf-8"
+                );
             }
         } catch (error) {
             console.error("Error fetching session:", error.message);
@@ -176,21 +186,38 @@ class FreedcampHandler {
      */
     async request(method, url, { params = {}, data = null } = {}) {
         const cleanParams = Object.fromEntries(
-            Object.entries(params).filter(([, v]) => v !== null && v !== undefined),
+            Object.entries(params).filter(([, v]) => v !== null && v !== undefined)
         );
         const config = { method, url, params: cleanParams };
         if (data !== null) {
             config.data = Object.fromEntries(
-                Object.entries(data).filter(([, v]) => v !== null && v !== undefined),
+                Object.entries(data).filter(([, v]) => v !== null && v !== undefined)
             );
         }
         try {
             const res = await this.client.request(config);
             return res.data;
         } catch (error) {
-            const msg = error.response?.data?.msg || error.message;
-            throw new Error(`${method} ${url} failed: ${msg}`);
+            throw new Error(this._describeError(method, url, error));
         }
+    }
+
+    /**
+     * Builds an actionable error message from a failed axios request, adding a
+     * hint for common HTTP statuses so the agent knows how to react.
+     */
+    _describeError(method, url, error) {
+        const status = error.response?.status;
+        const apiMsg = error.response?.data?.msg || error.message;
+        const hints = {
+            401: "authentication failed — check FREEDCAMP_API_KEY/FREEDCAMP_API_SECRET, or the session may need to be refreshed",
+            403: "permission denied — the authenticated user may not have access to this project/item",
+            404: "not found — verify the ID exists and is accessible to the authenticated user",
+            429: "rate limited — retries were exhausted; wait before retrying"
+        };
+        const hint =
+            hints[status] || (status >= 500 ? "Freedcamp server error — retry later" : null);
+        return `${method} ${url} failed${status ? ` (HTTP ${status})` : ""}: ${apiMsg}${hint ? ` (${hint})` : ""}`;
     }
 
     // ============ Tasks ============
@@ -214,56 +241,79 @@ class FreedcampHandler {
             created_date_to: null,
             f_with_archived: 0,
             list_status: "active",
-            order_due_date: null,
-        },
-    }) {
-        let url = `/tasks?limit=${limit}&offset=${offset}`;
-        if (project_id !== null) {
-            url += `&project_id=${project_id}`;
+            order_due_date: null
         }
-        Object.keys(filters).map((key) => {
+    }) {
+        const params = new URLSearchParams();
+        params.set("limit", String(limit));
+        params.set("offset", String(offset));
+        if (project_id !== null) {
+            params.set("project_id", project_id);
+        }
+        for (const key of Object.keys(filters)) {
+            const value = filters[key];
             if (key === "status") {
-                let appendUrl = ``;
-                filters[key].map((e) => {
-                    appendUrl += `&status[]=${statuses[e]}`;
-                });
-                url += appendUrl;
-            } else if (key === "assigned_to_id") {
-                let appendUrl = ``;
-                filters[key].map((e) => {
-                    appendUrl += `&assigned_to_id[]=${e}`;
-                });
-                url += appendUrl;
-            } else if (filters[key] !== null) {
-                if (filterMap[key] !== undefined) {
-                    url += `&${filterMap[key]}`;
-                } else {
-                    url += `&${key}=${filters[key]}`;
+                for (const status of value) {
+                    params.append("status[]", String(statuses[status]));
                 }
+            } else if (key === "assigned_to_id") {
+                for (const id of value) {
+                    params.append("assigned_to_id[]", String(id));
+                }
+            } else if (value !== null) {
+                const paramKey = filterMap[key] !== undefined ? filterMap[key] : key;
+                params.append(paramKey, String(value));
             }
-        });
-        const res = await this.client.get(url);
+        }
+        const res = await this.client.get(`/tasks?${params.toString()}`);
         return { tasks: res.data.data.tasks, meta: res.data.data.meta };
     }
 
-    async addTask({ title, description, project_id, task_group_id, priority, assigned_to_id, due_date, status, completed_date, attached_ids }) {
+    async addTask({
+        title,
+        description,
+        project_id,
+        task_group_id,
+        priority,
+        assigned_to_id,
+        due_date,
+        status,
+        completed_date,
+        attached_ids
+    }) {
         return this.request("POST", "/tasks", {
-            data: { title, description, project_id, task_group_id, priority, assigned_to_id, due_date, status, completed_date, attached_ids },
+            data: {
+                title,
+                description,
+                project_id,
+                task_group_id,
+                priority,
+                assigned_to_id,
+                due_date,
+                status,
+                completed_date,
+                attached_ids
+            }
         });
     }
 
-    async updateTask({ task_id, title = null, description = null, task_group_id = null, status = null, priority = null, assigned_to_id = null, due_date = null }) {
+    async updateTask({
+        task_id,
+        title = null,
+        description = null,
+        task_group_id = null,
+        status = null,
+        priority = null,
+        assigned_to_id = null,
+        due_date = null
+    }) {
         return this.request("POST", `/tasks/${task_id}`, {
-            data: { title, description, task_group_id, status, priority, assigned_to_id, due_date },
+            data: { title, description, task_group_id, status, priority, assigned_to_id, due_date }
         });
     }
 
     async deleteTask({ task_id }) {
         return this.request("DELETE", `/tasks/${task_id}`);
-    }
-
-    async fetchTasksByProject({ project_id }) {
-        return this.request("GET", "/tasks", { params: { project_id } });
     }
 
     // ============ Lists ============
@@ -275,13 +325,13 @@ class FreedcampHandler {
 
     async addList({ app_id = 2, project_id, title, description }) {
         return this.request("POST", `/lists/${app_id}`, {
-            data: { project_id, title, description },
+            data: { project_id, title, description }
         });
     }
 
     async editList({ app_id = 2, list_id, title, description }) {
         return this.request("POST", `/lists/${app_id}/${list_id}`, {
-            data: { title, description },
+            data: { title, description }
         });
     }
 
@@ -297,7 +347,7 @@ class FreedcampHandler {
         // task_id alongside — that form returns "this item can no longer be
         // accessed" on the public API.
         return this.request("POST", "/comments", {
-            data: { item_id: String(item_id), app_id, description, attached_ids },
+            data: { item_id: String(item_id), app_id, description, attached_ids }
         });
     }
 
@@ -315,15 +365,62 @@ class FreedcampHandler {
         return this.request("GET", `/events/${event_id}`);
     }
 
-    async addEvent({ project_id, title, description, f_all_day, start_date, start_time, end_date, end_time, r_rule, f_response_notify, mixed_users, attached_ids }) {
+    async addEvent({
+        project_id,
+        title,
+        description,
+        f_all_day,
+        start_date,
+        start_time,
+        end_date,
+        end_time,
+        r_rule,
+        f_response_notify,
+        mixed_users,
+        attached_ids
+    }) {
         return this.request("POST", "/events", {
-            data: { project_id, title, description, f_all_day, start_date, start_time, end_date, end_time, r_rule, f_response_notify, mixed_users, attached_ids },
+            data: {
+                project_id,
+                title,
+                description,
+                f_all_day,
+                start_date,
+                start_time,
+                end_date,
+                end_time,
+                r_rule,
+                f_response_notify,
+                mixed_users,
+                attached_ids
+            }
         });
     }
 
-    async editEvent({ event_id, title, description, f_all_day, start_date, start_time, end_date, end_time, r_rule, attached_ids }) {
+    async editEvent({
+        event_id,
+        title,
+        description,
+        f_all_day,
+        start_date,
+        start_time,
+        end_date,
+        end_time,
+        r_rule,
+        attached_ids
+    }) {
         return this.request("POST", `/events/${event_id}`, {
-            data: { title, description, f_all_day, start_date, start_time, end_date, end_time, r_rule, attached_ids },
+            data: {
+                title,
+                description,
+                f_all_day,
+                start_date,
+                start_time,
+                end_date,
+                end_time,
+                r_rule,
+                attached_ids
+            }
         });
     }
 
@@ -333,7 +430,7 @@ class FreedcampHandler {
 
     // ============ Discussions ============
 
-    async fetchDiscussions({ project_id, limit = 0, offset = 0 } = {}) {
+    async fetchDiscussions({ project_id, limit = 200, offset = 0 } = {}) {
         return this.request("GET", "/discussions", { params: { project_id, limit, offset } });
     }
 
@@ -341,15 +438,39 @@ class FreedcampHandler {
         return this.request("GET", `/discussions/${discussion_id}`);
     }
 
-    async addDiscussion({ title, description, project_id, list_id, list_title, list_descr, f_sticky, f_private, private_users, notifications, attached_ids }) {
+    async addDiscussion({
+        title,
+        description,
+        project_id,
+        list_id,
+        list_title,
+        list_descr,
+        f_sticky,
+        f_private,
+        private_users,
+        notifications,
+        attached_ids
+    }) {
         return this.request("POST", "/discussions", {
-            data: { title, description, project_id, list_id, list_title, list_descr, f_sticky, f_private, private_users, notifications, attached_ids },
+            data: {
+                title,
+                description,
+                project_id,
+                list_id,
+                list_title,
+                list_descr,
+                f_sticky,
+                f_private,
+                private_users,
+                notifications,
+                attached_ids
+            }
         });
     }
 
     async editDiscussion({ discussion_id, title, list_id, list_title, list_descr, f_sticky }) {
         return this.request("POST", `/discussions/${discussion_id}`, {
-            data: { title, list_id, list_title, list_descr, f_sticky },
+            data: { title, list_id, list_title, list_descr, f_sticky }
         });
     }
 
@@ -365,13 +486,13 @@ class FreedcampHandler {
 
     async addFileMeta({ project_id, group_id, application_id, item_id, comment_id, temporary }) {
         return this.request("POST", "/files", {
-            data: { project_id, group_id, application_id, item_id, comment_id, temporary },
+            data: { project_id, group_id, application_id, item_id, comment_id, temporary }
         });
     }
 
     // ============ Issues ============
 
-    async fetchIssues({ project_id, limit = 0, offset = 0 } = {}) {
+    async fetchIssues({ project_id, limit = 200, offset = 0 } = {}) {
         return this.request("GET", "/issues", { params: { project_id, limit, offset } });
     }
 
@@ -379,15 +500,58 @@ class FreedcampHandler {
         return this.request("GET", `/issues/${issue_id}`);
     }
 
-    async addIssue({ title, description, project_id, priority, status, type, assigned_to_id, due_date, closer_id, attached_ids }) {
+    async addIssue({
+        title,
+        description,
+        project_id,
+        priority,
+        status,
+        type,
+        assigned_to_id,
+        due_date,
+        closer_id,
+        attached_ids
+    }) {
         return this.request("POST", "/issues", {
-            data: { title, description, project_id, priority, status, type, assigned_to_id, due_date, closer_id, attached_ids },
+            data: {
+                title,
+                description,
+                project_id,
+                priority,
+                status,
+                type,
+                assigned_to_id,
+                due_date,
+                closer_id,
+                attached_ids
+            }
         });
     }
 
-    async editIssue({ issue_id, title, description, priority, status, type, assigned_to_id, due_date, closer_id, attached_ids }) {
+    async editIssue({
+        issue_id,
+        title,
+        description,
+        priority,
+        status,
+        type,
+        assigned_to_id,
+        due_date,
+        closer_id,
+        attached_ids
+    }) {
         return this.request("POST", `/issues/${issue_id}`, {
-            data: { title, description, priority, status, type, assigned_to_id, due_date, closer_id, attached_ids },
+            data: {
+                title,
+                description,
+                priority,
+                status,
+                type,
+                assigned_to_id,
+                due_date,
+                closer_id,
+                attached_ids
+            }
         });
     }
 
@@ -397,7 +561,7 @@ class FreedcampHandler {
 
     // ============ Milestones ============
 
-    async fetchMilestones({ project_id, limit = 0, offset = 0 } = {}) {
+    async fetchMilestones({ project_id, limit = 200, offset = 0 } = {}) {
         return this.request("GET", "/milestones", { params: { project_id, limit, offset } });
     }
 
@@ -405,15 +569,42 @@ class FreedcampHandler {
         return this.request("GET", `/milestones/${milestone_id}`);
     }
 
-    async addMilestone({ title, description, project_id, priority, assigned_to_id, due_date, status, start_date }) {
+    async addMilestone({
+        title,
+        description,
+        project_id,
+        priority,
+        assigned_to_id,
+        due_date,
+        status,
+        start_date
+    }) {
         return this.request("POST", "/milestones", {
-            data: { title, description, project_id, priority, assigned_to_id, due_date, status, start_date },
+            data: {
+                title,
+                description,
+                project_id,
+                priority,
+                assigned_to_id,
+                due_date,
+                status,
+                start_date
+            }
         });
     }
 
-    async editMilestone({ milestone_id, title, description, priority, status, assigned_to_id, due_date, start_date }) {
+    async editMilestone({
+        milestone_id,
+        title,
+        description,
+        priority,
+        status,
+        assigned_to_id,
+        due_date,
+        start_date
+    }) {
         return this.request("POST", `/milestones/${milestone_id}`, {
-            data: { title, description, priority, status, assigned_to_id, due_date, start_date },
+            data: { title, description, priority, status, assigned_to_id, due_date, start_date }
         });
     }
 
@@ -423,7 +614,7 @@ class FreedcampHandler {
 
     // ============ CRM Tasks ============
 
-    async fetchCrmTasks({ group_id, limit = 0, offset = 0 } = {}) {
+    async fetchCrmTasks({ group_id, limit = 200, offset = 0 } = {}) {
         return this.request("GET", "/crm_tasks", { params: { group_id, limit, offset } });
     }
 
@@ -431,15 +622,52 @@ class FreedcampHandler {
         return this.request("GET", `/crm_tasks/${crm_task_id}`);
     }
 
-    async addCrmTask({ title, description, group_id, type, contact_title, f_private, assigned_to_id, due_date }) {
+    async addCrmTask({
+        title,
+        description,
+        group_id,
+        type,
+        contact_title,
+        f_private,
+        assigned_to_id,
+        due_date
+    }) {
         return this.request("POST", "/crm_tasks", {
-            data: { title, description, group_id, type, contact_title, f_private, assigned_to_id, due_date },
+            data: {
+                title,
+                description,
+                group_id,
+                type,
+                contact_title,
+                f_private,
+                assigned_to_id,
+                due_date
+            }
         });
     }
 
-    async editCrmTask({ crm_task_id, title, description, status, type, contact_title, f_private, assigned_to_id, due_date }) {
+    async editCrmTask({
+        crm_task_id,
+        title,
+        description,
+        status,
+        type,
+        contact_title,
+        f_private,
+        assigned_to_id,
+        due_date
+    }) {
         return this.request("POST", `/crm_tasks/${crm_task_id}`, {
-            data: { title, description, status, type, contact_title, f_private, assigned_to_id, due_date },
+            data: {
+                title,
+                description,
+                status,
+                type,
+                contact_title,
+                f_private,
+                assigned_to_id,
+                due_date
+            }
         });
     }
 
@@ -449,7 +677,7 @@ class FreedcampHandler {
 
     // ============ CRM Calls ============
 
-    async fetchCrmCalls({ group_id, limit = 0, offset = 0 } = {}) {
+    async fetchCrmCalls({ group_id, limit = 200, offset = 0 } = {}) {
         return this.request("GET", "/crm_calls", { params: { group_id, limit, offset } });
     }
 
@@ -457,15 +685,50 @@ class FreedcampHandler {
         return this.request("GET", `/crm_calls/${crm_call_id}`);
     }
 
-    async addCrmCall({ title, description, group_id, f_inbound, contact_title, assigned_to_id, due_date, duration }) {
+    async addCrmCall({
+        title,
+        description,
+        group_id,
+        f_inbound,
+        contact_title,
+        assigned_to_id,
+        due_date,
+        duration
+    }) {
         return this.request("POST", "/crm_calls", {
-            data: { title, description, group_id, f_inbound, contact_title, assigned_to_id, due_date, duration },
+            data: {
+                title,
+                description,
+                group_id,
+                f_inbound,
+                contact_title,
+                assigned_to_id,
+                due_date,
+                duration
+            }
         });
     }
 
-    async editCrmCall({ crm_call_id, title, description, f_inbound, contact_title, assigned_to_id, due_date, duration }) {
+    async editCrmCall({
+        crm_call_id,
+        title,
+        description,
+        f_inbound,
+        contact_title,
+        assigned_to_id,
+        due_date,
+        duration
+    }) {
         return this.request("POST", `/crm_calls/${crm_call_id}`, {
-            data: { title, description, f_inbound, contact_title, assigned_to_id, due_date, duration },
+            data: {
+                title,
+                description,
+                f_inbound,
+                contact_title,
+                assigned_to_id,
+                due_date,
+                duration
+            }
         });
     }
 
@@ -475,7 +738,7 @@ class FreedcampHandler {
 
     // ============ Times ============
 
-    async fetchTimes({ project_id, limit = 0, offset = 0 } = {}) {
+    async fetchTimes({ project_id, limit = 200, offset = 0 } = {}) {
         return this.request("GET", "/times", { params: { project_id, limit, offset } });
     }
 
@@ -483,15 +746,31 @@ class FreedcampHandler {
         return this.request("GET", `/times/${time_id}`);
     }
 
-    async addTime({ description, project_id, assigned_to_id, date, minutes_count, f_started, f_billed }) {
+    async addTime({
+        description,
+        project_id,
+        assigned_to_id,
+        date,
+        minutes_count,
+        f_started,
+        f_billed
+    }) {
         return this.request("POST", "/times", {
-            data: { description, project_id, assigned_to_id, date, minutes_count, f_started, f_billed },
+            data: {
+                description,
+                project_id,
+                assigned_to_id,
+                date,
+                minutes_count,
+                f_started,
+                f_billed
+            }
         });
     }
 
     async editTime({ time_id, description, assigned_to_id, date, minutes_count }) {
         return this.request("POST", `/times/${time_id}`, {
-            data: { description, assigned_to_id, date, minutes_count },
+            data: { description, assigned_to_id, date, minutes_count }
         });
     }
 
@@ -503,14 +782,9 @@ class FreedcampHandler {
         return this.request("POST", `/times/${time_id}`, { data: { action } });
     }
 
-    async startTime({ time_id }) { return this.timeAction({ time_id, action: "start" }); }
-    async stopTime({ time_id }) { return this.timeAction({ time_id, action: "stop" }); }
-    async billTime({ time_id }) { return this.timeAction({ time_id, action: "bill" }); }
-    async unbillTime({ time_id }) { return this.timeAction({ time_id, action: "unbill" }); }
-
     // ============ Wikis ============
 
-    async fetchWikis({ project_id, limit = 0, offset = 0, order_title = "asc" } = {}) {
+    async fetchWikis({ project_id, limit = 200, offset = 0, order_title = "asc" } = {}) {
         const params = { project_id, limit, offset };
         if (order_title) params["order[title]"] = order_title;
         return this.request("GET", "/wikis", { params });
@@ -520,15 +794,60 @@ class FreedcampHandler {
         return this.request("GET", `/wikis/${wiki_id}`);
     }
 
-    async addWiki({ title, description, project_id, list_id, list_title, list_descr, f_private, f_public, private_users, attached_ids }) {
+    async addWiki({
+        title,
+        description,
+        project_id,
+        list_id,
+        list_title,
+        list_descr,
+        f_private,
+        f_public,
+        private_users,
+        attached_ids
+    }) {
         return this.request("POST", "/wikis", {
-            data: { title, description, project_id, list_id, list_title, list_descr, f_private, f_public, private_users, attached_ids },
+            data: {
+                title,
+                description,
+                project_id,
+                list_id,
+                list_title,
+                list_descr,
+                f_private,
+                f_public,
+                private_users,
+                attached_ids
+            }
         });
     }
 
-    async editWiki({ wiki_id, title, description, list_id, list_title, list_descr, f_private, f_public, private_users, attached_ids, f_new_version = false }) {
+    async editWiki({
+        wiki_id,
+        title,
+        description,
+        list_id,
+        list_title,
+        list_descr,
+        f_private,
+        f_public,
+        private_users,
+        attached_ids,
+        f_new_version = false
+    }) {
         return this.request("POST", `/wikis/${wiki_id}`, {
-            data: { f_new_version, title, description, list_id, list_title, list_descr, f_private, f_public, private_users, attached_ids },
+            data: {
+                f_new_version,
+                title,
+                description,
+                list_id,
+                list_title,
+                list_descr,
+                f_private,
+                f_public,
+                private_users,
+                attached_ids
+            }
         });
     }
 
@@ -538,25 +857,21 @@ class FreedcampHandler {
 
     async addWikiVersion({ wiki_id, title, description, attached_ids }) {
         return this.request("POST", `/wikis/${wiki_id}`, {
-            data: { f_new_version: true, title, description, attached_ids },
+            data: { f_new_version: true, title, description, attached_ids }
         });
     }
 
     // ============ Notifications ============
 
-    async fetchNotifications(project_id = null) {
+    async fetchNotifications() {
         const url = `/notifications?following=1&from_ts=${moment().subtract(60, "days").format("X")}`;
         const res = await this.client.get(url);
         return res.data;
     }
 
-    async fetchAllNotifications() {
-        return this.request("GET", "/notifications");
-    }
-
     async updateNotificationRead(uid = null) {
         return this.request("POST", "/notifications", {
-            data: { new_state: "read", items: [{ item_u_key: uid }] },
+            data: { new_state: "read", items: [{ item_u_key: uid }] }
         });
     }
 
@@ -594,15 +909,31 @@ class FreedcampHandler {
         return this.request("GET", "/recent_project_ids");
     }
 
-    async addProject({ project_name, project_description, project_color, todo_view_type, usage_type, group_id, group_name }) {
+    async addProject({
+        project_name,
+        project_description,
+        project_color,
+        todo_view_type,
+        usage_type,
+        group_id,
+        group_name
+    }) {
         return this.request("POST", "/projects", {
-            data: { project_name, project_description, project_color, todo_view_type, usage_type, group_id, group_name },
+            data: {
+                project_name,
+                project_description,
+                project_color,
+                todo_view_type,
+                usage_type,
+                group_id,
+                group_name
+            }
         });
     }
 
     async editProject({ project_id, project_name, project_color, group_id, cs_tpl_id }) {
         return this.request("POST", `/projects/${project_id}`, {
-            data: { project_name, project_color, group_id, cs_tpl_id },
+            data: { project_name, project_color, group_id, cs_tpl_id }
         });
     }
 
@@ -660,7 +991,7 @@ class FreedcampHandler {
 
     async respondInvitation({ invitation_id, action, response, project_id } = {}) {
         return this.request("POST", "/invitations", {
-            data: { invitation_id, action, response, project_id },
+            data: { invitation_id, action, response, project_id }
         });
     }
 
@@ -676,13 +1007,20 @@ class FreedcampHandler {
 
     async registerUser({ email, password, first_name, last_name, timezone } = {}) {
         return this.request("POST", "/users", {
-            data: { email, password, first_name, last_name, timezone },
+            data: { email, password, first_name, last_name, timezone }
         });
     }
 
-    async updateCurrentUser({ first_name, last_name, email, timezone, password, current_password } = {}) {
+    async updateCurrentUser({
+        first_name,
+        last_name,
+        email,
+        timezone,
+        password,
+        current_password
+    } = {}) {
         return this.request("POST", "/users/current", {
-            data: { first_name, last_name, email, timezone, password, current_password },
+            data: { first_name, last_name, email, timezone, password, current_password }
         });
     }
 
@@ -709,15 +1047,20 @@ class FreedcampHandler {
     // ============ Avatars ============
 
     async uploadAvatar({ file_path, filename, mime_type, content_base64 } = {}) {
-        const { blob, name } = this._buildBlob({ file_path, filename, mime_type, content_base64, defaultName: "avatar" });
+        const { blob, name } = this._buildBlob({
+            file_path,
+            filename,
+            mime_type,
+            content_base64,
+            defaultName: "avatar"
+        });
         const form = new FormData();
         form.append("file", blob, name);
         try {
             const res = await this.client.post("/avatars/current", form);
             return res.data;
         } catch (error) {
-            const msg = error.response?.data?.msg || error.message;
-            throw new Error(`POST /avatars/current failed: ${msg}`);
+            throw new Error(this._describeError("POST", "/avatars/current", error));
         }
     }
 
@@ -765,7 +1108,7 @@ class FreedcampHandler {
         application_id,
         item_id,
         comment_id,
-        temporary,
+        temporary
     } = {}) {
         const { blob, name } = this._buildBlob({ file_path, filename, mime_type, content_base64 });
         const form = new FormData();
@@ -778,8 +1121,7 @@ class FreedcampHandler {
             const res = await this.client.post("/files", form);
             return res.data;
         } catch (error) {
-            const msg = error.response?.data?.msg || error.message;
-            throw new Error(`POST /files failed: ${msg}`);
+            throw new Error(this._describeError("POST", "/files", error));
         }
     }
 
@@ -817,7 +1159,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
             if (!apiKey || !apiSecret) {
                 console.error(
-                    "Error: FREEDCAMP_API_KEY and FREEDCAMP_API_SECRET must be set in .env file",
+                    "Error: FREEDCAMP_API_KEY and FREEDCAMP_API_SECRET must be set in .env file"
                 );
                 process.exit(1);
             }
