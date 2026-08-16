@@ -63,6 +63,45 @@ Add to your User Settings (JSON) or `.vscode/mcp.json`:
 
 ---
 
+## HTTP transport with OAuth (remote / multi-user)
+
+By default the server speaks stdio and authenticates with a single
+`FREEDCAMP_API_KEY`/`FREEDCAMP_API_SECRET` pair. To let **many users** connect
+to one hosted instance — each with their own Freedcamp account — run the
+server over HTTP with OAuth instead:
+
+```bash
+MCP_TRANSPORT=http \
+PORT=3000 \
+HOST=0.0.0.0 \
+MCP_PUBLIC_URL=https://mcp.example.com \
+OAUTH_TOKEN_SECRET=<random-64-char-hex> \
+npx freedcamp-mcp-server
+```
+
+Then point any MCP client that supports remote (Streamable HTTP) servers at
+`https://mcp.example.com/mcp`. The client will open an OAuth authorization
+page that asks for the user's own Freedcamp API key and secret (from
+Freedcamp → **Settings → API**). Those credentials are verified against the
+Freedcamp API and exchanged for a bearer token the client uses on subsequent
+requests.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MCP_TRANSPORT` | `stdio` | Set to `http` to enable the HTTP + OAuth server |
+| `PORT` | `3000` | Port the HTTP server listens on |
+| `HOST` | `127.0.0.1` | Interface to bind; use `0.0.0.0` behind a proxy |
+| `MCP_PUBLIC_URL` | `http://<host>:<port>` | Public base URL advertised in OAuth metadata — set to your external HTTPS URL in production |
+| `OAUTH_TOKEN_SECRET` | random per boot | Secret used to encrypt bearer tokens. Set a stable random value so tokens survive restarts |
+| `FREEDCAMP_API_KEY` / `FREEDCAMP_API_SECRET` | — | Only required in `stdio` mode; ignored in `http` mode (each user supplies their own) |
+
+> **Note:** Freedcamp's API does not natively issue OAuth tokens, so this
+> server acts as the OAuth authorization server: bearer tokens embed the
+> user's API credentials, encrypted with AES-256-GCM under
+> `OAUTH_TOKEN_SECRET`. No credentials or tokens are written to disk.
+
+---
+
 ## Tools
 
 All tools are prefixed with `fc_`.

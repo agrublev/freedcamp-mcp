@@ -24,6 +24,13 @@ import * as notifications from "./operations/notifications.js";
 import * as misc from "./operations/misc.js";
 import * as files from "./operations/files.js";
 
+// ── Transport selection ────────────────────────────────────────────────────
+// stdio (default): single user, credentials come from FREEDCAMP_API_KEY /
+// FREEDCAMP_API_SECRET env vars. http: multi-user, each MCP client completes
+// an OAuth flow and supplies its own Freedcamp API credentials (see http.js /
+// oauth.js) — no shared env credentials are required in that mode.
+const useHttpTransport = (process.env.MCP_TRANSPORT || "stdio").toLowerCase() === "http";
+
 const apiKey = process.env.FREEDCAMP_API_KEY;
 const apiSecret = process.env.FREEDCAMP_API_SECRET;
 
@@ -31,17 +38,29 @@ const missingCreds = [!apiKey && "FREEDCAMP_API_KEY", !apiSecret && "FREEDCAMP_A
     Boolean
 );
 
-if (missingCreds.length) {
+if (!useHttpTransport && missingCreds.length) {
     console.error("=== LOGIN ERROR ===");
     console.error(`Missing required credential env var(s): ${missingCreds.join(", ")}`);
     console.error("The Freedcamp MCP server cannot authenticate without these.");
     console.error("Pass them when launching the server, e.g.:");
     console.error("  FREEDCAMP_API_KEY=xxx FREEDCAMP_API_SECRET=yyy npx freedcamp-mcp-server");
+    console.error("(Or run with MCP_TRANSPORT=http to let users authorize via OAuth instead.)");
     process.exit(1);
 }
 
-const fc = new FreedcampHandler(apiKey, apiSecret, undefined, { sessionFilePath: null });
-await fc.initialize();
+// ── OAuth token → Freedcamp handler cache (HTTP mode only) ────────────────
+// Maps bearer tokens to a lazily created, initialized FreedcampHandler so
+// that a single process can safely serve many Freedcamp accounts at once.
+const httpHandlers = new Map();
+
+function handlerForToken(token) {
+    let handler = httpHandlers.get(token);
+    if (!handler) {
+        handler = new FreedcampHandler(undefined, undefined, undefined, { sessionFilePath: null });
+        httpHandlers.set(token, handler);
+    }
+    return handler;
+}
 
 // ── Tool annotations ───────────────────────────────────────────────────────
 // Derived from naming convention rather than repeated per tool: every
@@ -430,31 +449,37 @@ const tools = [
 
 // ── Server setup ───────────────────────────────────────────────────────────
 
-const server = new Server(
-    { name: "freedcamp-mcp-server", version: VERSION },
-    { capabilities: { tools: {} } }
-);
+/**
+ * Builds an MCP server wired to the given FreedcampHandler. In stdio mode
+ * this is called once with the env-credential handler; in HTTP mode it is
+ * called once per OAuth-authorized user (see http.js).
+ */
+function buildServer(fc) {
+    const server = new Server(
+        { name: "freedcamp-mcp-server", version: VERSION },
+        { capabilities: { tools: {} } }
+    );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: tools.map(({ name, description, schema, outputSchema }) => ({
-        name,
-        description,
-        inputSchema: zodToJsonSchema(schema),
-        outputSchema: zodToJsonSchema(outputSchema || ApiResponseSchema),
-        annotations: inferAnnotations(name)
-    }))
-}));
+    server.setRequestHandler(ListToolsRequestSchema, async () => ({
+        tools: tools.map(({ name, description, schema, outputSchema }) => ({
+            name,
+            description,
+            inputSchema: zodToJsonSchema(schema),
+            outputSchema: zodToJsonSchema(outputSchema || ApiResponseSchema),
+            annotations: inferAnnotations(name)
+        }))
+    }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
+    server.setRequestHandler(CallToolRequestSchema, async (request) => {
+        const { name, arguments: args } = request.params;
 
-    const ok = (data) => ({
-        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        structuredContent: data
-    });
+        const ok = (data) => ({
+            content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+            structuredContent: data
+        });
 
-    try {
-        switch (name) {
+        try {
+            switch (name) {
             // Tasks
             case "fc_fetch_task":
                 return ok(await fc.fetchTask(tasks.FetchTaskSchema.parse(args)));
@@ -691,28 +716,45 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
             default:
                 throw new Error(`Unknown tool: ${name}`);
+            }
+        } catch (err) {
+            const message =
+                err instanceof z.ZodError
+                    ? `Invalid input for ${name}: ${err.errors
+                          .map((e) => `${e.path.join(".") || "(root)"}: ${e.message}`)
+                          .join("; ")}`
+                    : err.message || String(err);
+            return {
+                isError: true,
+                content: [{ type: "text", text: message }]
+            };
         }
-    } catch (err) {
-        const message =
-            err instanceof z.ZodError
-                ? `Invalid input for ${name}: ${err.errors
-                      .map((e) => `${e.path.join(".") || "(root)"}: ${e.message}`)
-                      .join("; ")}`
-                : err.message || String(err);
-        return {
-            isError: true,
-            content: [{ type: "text", text: message }]
-        };
-    }
-});
+    });
 
-async function runServer() {
+    return server;
+}
+
+async function runStdioServer() {
+    const fc = new FreedcampHandler(apiKey, apiSecret, undefined, { sessionFilePath: null });
+    await fc.initialize();
     const transport = new StdioServerTransport();
-    await server.connect(transport);
+    await buildServer(fc).connect(transport);
     console.error("Freedcamp MCP Server running on stdio");
 }
 
-runServer().catch((error) => {
-    console.error("Fatal error:", error);
-    process.exit(1);
-});
+async function runHttpServer() {
+    const { startHttpServer } = await import("./http.js");
+    await startHttpServer({ buildServer, handlerForToken });
+}
+
+if (useHttpTransport) {
+    runHttpServer().catch((error) => {
+        console.error("Fatal error:", error);
+        process.exit(1);
+    });
+} else {
+    runStdioServer().catch((error) => {
+        console.error("Fatal error:", error);
+        process.exit(1);
+    });
+}
