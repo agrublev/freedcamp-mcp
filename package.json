@@ -15,26 +15,27 @@
     "common/",
     "operations/"
   ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "shx chmod +x index.js",
     "prepare": "npm run build",
+    "start": "node index.js",
+    "smoke": "node client.js",
     "release": "node scripts/release.js",
     "release:patch": "node scripts/release.js patch",
     "release:minor": "node scripts/release.js minor",
     "release:major": "node scripts/release.js major"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.0.1",
-    "axios": "^1.16.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "axios": "^1.19.0",
     "moment": "^2.30.1",
-    "node-fetch": "^3.3.2",
-    "universal-user-agent": "^7.0.2",
-    "zod": "^3.22.4",
-    "zod-to-json-schema": "^3.23.5"
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
-    "@cfworker/json-schema": "^4.1.1",
-    "@modelcontextprotocol/client": "^2.0.0-alpha.2",
     "dotenv": "^17.4.2",
     "shx": "^0.3.4"
   }

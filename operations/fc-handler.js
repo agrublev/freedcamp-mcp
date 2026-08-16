@@ -131,12 +131,17 @@ class FreedcampHandler {
                 this.sessionData = savedData.sessionData || savedData;
                 this.sessionToken = savedData.sessionToken || null;
                 this.userId = savedData.userId || this.sessionData?.user_id || null;
+                return;
             } catch (error) {
                 console.error("Error reading session file:", error.message);
-                await this.fetchSession();
             }
-        } else {
+        }
+        try {
             await this.fetchSession();
+        } catch (error) {
+            // Non-fatal: HMAC-signed requests work without a session token, and the
+            // session is re-fetched automatically on the first 401 response.
+            console.error("Session prefetch failed (falling back to HMAC auth):", error.message);
         }
     }
 

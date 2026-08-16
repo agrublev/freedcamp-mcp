@@ -6,6 +6,8 @@ MCP Server for the [Freedcamp](https://freedcamp.com) API, enabling project mana
 
 ## Setup
 
+Requires Node.js 18 or newer.
+
 ### API Credentials
 
 1. Log in to your Freedcamp account
@@ -222,6 +224,16 @@ All tools are prefixed with `fc_`.
 | `fc_fetch_notifications_by_project` | Get notifications for a project (`project_id`) |
 | `fc_update_notification_read` | Mark notification as read (optional: `uid`) |
 | `fc_edit_notifications` | Bulk update notification state (`items`, optional: `new_state`) |
+
+### Files
+
+| Tool | Description |
+|------|-------------|
+| `fc_fetch_file` | Get file metadata (`file_id`) |
+| `fc_add_file_meta` | Create a file metadata record (optional: `project_id`, `group_id`, `application_id`, `item_id`, `comment_id`, `temporary`) |
+| `fc_upload_file` | Upload a file (`file_path` or `content_base64`; optional: `filename`, `mime_type`, `project_id`, `item_id`, …) |
+| `fc_delete_file` | Delete a file (`file_id`) |
+| `fc_upload_avatar` | Upload an avatar for the current user (`file_path` or `content_base64`) |
 
 ### Miscellaneous
 

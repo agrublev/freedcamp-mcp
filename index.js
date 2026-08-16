@@ -432,7 +432,17 @@ const tools = [
 
 const server = new Server(
     { name: "freedcamp-mcp-server", version: VERSION },
-    { capabilities: { tools: {} } }
+    {
+        capabilities: { tools: {} },
+        instructions:
+            "MCP server for the Freedcamp API. All tools are prefixed with fc_ and map to " +
+            "Freedcamp resources: tasks, lists, comments, events, discussions, issues, " +
+            "milestones, time entries, wikis, projects, CRM (tasks and calls), users, " +
+            "notifications, files, and misc utilities (overview, linked items, calendar " +
+            "items, favorites, timezones, backups). fc_fetch_* tools are read-only; " +
+            "fc_delete_* tools are destructive. Most write tools accept optional null " +
+            "fields — omit fields you do not intend to change."
+    }
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -710,6 +720,14 @@ async function runServer() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
     console.error("Freedcamp MCP Server running on stdio");
+
+    const shutdown = async (signal) => {
+        console.error(`Received ${signal}, shutting down…`);
+        await server.close().catch(() => {});
+        process.exit(0);
+    };
+    process.on("SIGINT", () => shutdown("SIGINT"));
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
 
 runServer().catch((error) => {
