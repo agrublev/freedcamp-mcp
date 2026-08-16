@@ -19,7 +19,7 @@ import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middlew
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { FreedcampOAuthProvider } from "./oauth.js";
 
-export async function startHttpServer({ buildServer, handlerForToken }) {
+export async function startHttpServer({ buildServer, handlerForToken, dropHandlerForToken }) {
     const port = Number(process.env.PORT || 3000);
     const host = process.env.HOST || "127.0.0.1";
     const publicUrl = (
@@ -93,6 +93,7 @@ export async function startHttpServer({ buildServer, handlerForToken }) {
                     enableJsonResponse: true,
                     onsessionclosed: () => {
                         sessions.delete(token);
+                        dropHandlerForToken(token); // free the per-user handler too
                     }
                 });
                 const server = buildServer(fc);

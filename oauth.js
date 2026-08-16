@@ -143,7 +143,9 @@ export class FreedcampOAuthProvider {
     }
 
     _renderForm(res, hiddenInputs, errorMessage) {
-        res.status(errorMessage ? 401 : 200);
+        // 400 (not 401) for form validation errors — this is a browser-based
+        // OAuth page, and 401 would trigger WWW-Authenticate handling.
+        res.status(errorMessage ? 400 : 200);
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.send(`<!doctype html>
 <html lang="en">

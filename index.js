@@ -62,6 +62,10 @@ function handlerForToken(token) {
     return handler;
 }
 
+function dropHandlerForToken(token) {
+    httpHandlers.delete(token);
+}
+
 // ── Tool annotations ───────────────────────────────────────────────────────
 // Derived from naming convention rather than repeated per tool: every
 // "fc_fetch_*"/"fc_validate_*" tool is a read-only GET; every "fc_delete_*"
@@ -744,7 +748,7 @@ async function runStdioServer() {
 
 async function runHttpServer() {
     const { startHttpServer } = await import("./http.js");
-    await startHttpServer({ buildServer, handlerForToken });
+    await startHttpServer({ buildServer, handlerForToken, dropHandlerForToken });
 }
 
 if (useHttpTransport) {
