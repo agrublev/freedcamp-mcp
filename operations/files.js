@@ -18,7 +18,7 @@ export const AddFileMetaSchema = z.object({
     )
 });
 
-export const FileContentSchema = {
+const fileContentShape = {
     file_path: Opt(z.string()).describe(
         "Absolute path to a local file to upload. Provide this or content_base64."
     ),
@@ -31,24 +31,29 @@ export const FileContentSchema = {
     )
 };
 
-export const UploadFileSchema = z.object({
-    ...FileContentSchema,
-    project_id: Opt(z.string()).describe("ID of the project the file belongs to."),
-    group_id: Opt(z.string()).describe("ID of the group the file belongs to."),
-    application_id: Opt(z.number().int()).describe(
-        "Freedcamp app ID the file is attached to, e.g. 2=Tasks, 13=Issue Tracker."
-    ),
-    item_id: Opt(z.string()).describe("ID of the item to attach the file to."),
-    comment_id: Opt(z.string()).describe("ID of the comment to attach the file to."),
-    temporary: Opt(z.number().int()).describe(
-        "Set to 1 to upload as a temporary file; attach it later via attached_ids."
-    )
-});
+const requireContent = (schema) =>
+    schema.refine((v) => v.file_path || v.content_base64, {
+        message: "Provide file_path or content_base64"
+    });
+
+export const UploadFileSchema = requireContent(
+    z.object({
+        ...fileContentShape,
+        project_id: Opt(z.string()).describe("ID of the project the file belongs to."),
+        group_id: Opt(z.string()).describe("ID of the group the file belongs to."),
+        application_id: Opt(z.number().int()).describe(
+            "Freedcamp app ID the file is attached to, e.g. 2=Tasks, 13=Issue Tracker."
+        ),
+        item_id: Opt(z.string()).describe("ID of the item to attach the file to."),
+        comment_id: Opt(z.string()).describe("ID of the comment to attach the file to."),
+        temporary: Opt(z.number().int()).describe(
+            "Set to 1 to upload as a temporary file; attach it later via attached_ids."
+        )
+    })
+);
 
 export const DeleteFileSchema = z.object({
     file_id: z.string().describe("ID of the file to delete.")
 });
 
-export const UploadAvatarSchema = z.object({
-    ...FileContentSchema
-});
+export const UploadAvatarSchema = requireContent(z.object({ ...fileContentShape }));
