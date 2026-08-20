@@ -4,6 +4,14 @@
 
 MCP Server for the [Freedcamp](https://freedcamp.com) API, enabling project management, task tracking, time logging, CRM, and more through Claude and other MCP clients.
 
+📚 **Documentation: [mcp-docs.freedcamp.top](https://mcp-docs.freedcamp.top)** — setup guides for Claude Desktop, Claude Code, Cursor, Codex CLI, and ChatGPT, plus the full tool reference.
+
+> Prefer not to run anything yourself? A hosted instance with OAuth sign-in is
+> available at `https://mcp-oauth.freedcamp.top/mcp` — point any MCP client at
+> that URL and authorize with your own Freedcamp API key/secret in the browser.
+> See [mcp-docs.freedcamp.top](https://mcp-docs.freedcamp.top) for per-client
+> instructions.
+
 ## Setup
 
 ### API Credentials
@@ -64,6 +72,10 @@ Add to your User Settings (JSON) or `.vscode/mcp.json`:
 ---
 
 ## HTTP transport with OAuth (remote / multi-user)
+
+> Already hosted for you at `https://mcp-oauth.freedcamp.top/mcp` — see
+> [mcp-docs.freedcamp.top](https://mcp-docs.freedcamp.top) for client setup.
+> The rest of this section covers running your **own** instance.
 
 By default the server speaks stdio and authenticates with a single
 `FREEDCAMP_API_KEY`/`FREEDCAMP_API_SECRET` pair. To let **many users** connect
@@ -276,6 +288,12 @@ All tools are prefixed with `fc_`.
 | `fc_fetch_backups` | List account backups |
 
 ---
+
+## Links
+
+- **Documentation:** [mcp-docs.freedcamp.top](https://mcp-docs.freedcamp.top)
+- **Hosted endpoint (OAuth):** `https://mcp-oauth.freedcamp.top/mcp`
+- **Freedcamp API credentials:** [freedcamp.com/manage/account#api](https://freedcamp.com/manage/account#api)
 
 ## License
 
