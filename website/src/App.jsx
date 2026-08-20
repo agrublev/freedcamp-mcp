@@ -1,136 +1,138 @@
 import React, { useState, useEffect } from 'react';
 
-const MCP_URL = 'https://mcp.freedcamp.top/mcp';
+const MCP_URL = 'https://mcp-oauth.freedcamp.top/mcp';
 
 const TOOL_GROUPS = [
   {
-    name: 'High-level helpers',
-    desc: 'Friendly name-based actions',
-    tools: ['get-groups-projects', 'add-app-item', 'add-comment', 'update-status'],
-  },
-  {
     name: 'Tasks',
-    desc: 'Filter, query, and mutate tasks',
-    tools: ['tasks_list', 'tasks_get', 'tasks_get_by_project', 'tasks_add', 'tasks_edit', 'tasks_delete'],
+    desc: 'Query, create, and mutate tasks',
+    tools: ['fc_fetch_task', 'fc_fetch_tasks', 'fc_add_task', 'fc_update_task', 'fc_delete_task'],
   },
   {
     name: 'Lists',
     desc: 'Task list groupings',
-    tools: ['lists_get', 'lists_add', 'lists_edit', 'lists_delete'],
+    tools: ['fc_fetch_lists', 'fc_add_list', 'fc_edit_list', 'fc_delete_list'],
   },
   {
     name: 'Comments',
-    desc: 'HTML-formatted threaded comments',
-    tools: ['comments_add', 'comments_edit', 'comments_delete'],
+    desc: 'HTML-formatted threaded comments on any item',
+    tools: ['fc_add_comment', 'fc_edit_comment', 'fc_delete_comment'],
   },
   {
     name: 'Calendar Events',
     desc: 'Schedule and update events',
-    tools: ['events_list', 'events_get', 'events_add', 'events_edit', 'events_delete'],
+    tools: ['fc_fetch_events', 'fc_fetch_event', 'fc_add_event', 'fc_edit_event', 'fc_delete_event'],
   },
   {
     name: 'Discussions',
     desc: 'Project-level conversations',
-    tools: ['discussions_list', 'discussions_get', 'discussions_add', 'discussions_edit', 'discussions_delete'],
-  },
-  {
-    name: 'Files',
-    desc: 'Read, upload (multipart), and manage files',
-    tools: ['files_get', 'files_add_meta', 'files_upload', 'files_delete'],
+    tools: ['fc_fetch_discussions', 'fc_fetch_discussion', 'fc_add_discussion', 'fc_edit_discussion', 'fc_delete_discussion'],
   },
   {
     name: 'Issues',
     desc: 'Bug tracker',
-    tools: ['issues_list', 'issues_get', 'issues_add', 'issues_edit', 'issues_delete'],
+    tools: ['fc_fetch_issues', 'fc_fetch_issue', 'fc_add_issue', 'fc_edit_issue', 'fc_delete_issue'],
   },
   {
     name: 'Milestones',
     desc: 'Project milestones',
-    tools: ['milestones_list', 'milestones_get', 'milestones_add', 'milestones_edit', 'milestones_delete'],
-  },
-  {
-    name: 'CRM — Tasks',
-    desc: 'Sales pipeline tasks',
-    tools: ['crm_tasks_list', 'crm_tasks_get', 'crm_tasks_add', 'crm_tasks_edit', 'crm_tasks_delete'],
-  },
-  {
-    name: 'CRM — Calls',
-    desc: 'Call logs & follow-ups',
-    tools: ['crm_calls_list', 'crm_calls_get', 'crm_calls_add', 'crm_calls_edit', 'crm_calls_delete'],
+    tools: ['fc_fetch_milestones', 'fc_fetch_milestone', 'fc_add_milestone', 'fc_edit_milestone', 'fc_delete_milestone'],
   },
   {
     name: 'Time Tracking',
     desc: 'Timer + manual entries, billing',
-    tools: ['times_list', 'times_get', 'times_add', 'times_edit', 'times_delete', 'times_start', 'times_stop', 'times_bill', 'times_unbill'],
+    tools: ['fc_fetch_times', 'fc_fetch_time', 'fc_add_time', 'fc_edit_time', 'fc_delete_time', 'fc_time_action'],
   },
   {
     name: 'Wikis',
     desc: 'Versioned wiki documents',
-    tools: ['wikis_list', 'wikis_get', 'wikis_add', 'wikis_edit', 'wikis_delete', 'wikis_add_version'],
-  },
-  {
-    name: 'Notifications',
-    desc: 'Inbox, mark-as-read, and project-scoped feed',
-    tools: ['notifications_list', 'notifications_recent', 'notifications_edit', 'notifications_list_by_project'],
-  },
-  {
-    name: 'Calendar (aggregated)',
-    desc: 'Cross-app calendar feed',
-    tools: ['calendar_items_get'],
+    tools: ['fc_fetch_wikis', 'fc_fetch_wiki', 'fc_add_wiki', 'fc_edit_wiki', 'fc_delete_wiki', 'fc_add_wiki_version'],
   },
   {
     name: 'Projects',
     desc: 'Lifecycle & membership',
-    tools: ['projects_list', 'projects_get', 'projects_recent', 'projects_add', 'projects_edit', 'projects_leave', 'projects_delete'],
+    tools: ['fc_fetch_projects', 'fc_fetch_project', 'fc_fetch_recent_project_ids', 'fc_add_project', 'fc_edit_project', 'fc_leave_project', 'fc_delete_project'],
   },
   {
-    name: 'Linked items',
-    desc: 'Cross-link tasks, issues, milestones',
-    tools: ['linked_items_get', 'linked_items_add'],
+    name: 'CRM — Tasks',
+    desc: 'Sales pipeline tasks',
+    tools: ['fc_fetch_crm_tasks', 'fc_fetch_crm_task', 'fc_add_crm_task', 'fc_edit_crm_task', 'fc_delete_crm_task'],
   },
   {
-    name: 'Favorites',
-    desc: 'Pin frequent projects',
-    tools: ['favorite_projects_add', 'favorite_projects_delete'],
+    name: 'CRM — Calls',
+    desc: 'Call logs & follow-ups',
+    tools: ['fc_fetch_crm_calls', 'fc_fetch_crm_call', 'fc_add_crm_call', 'fc_edit_crm_call', 'fc_delete_crm_call'],
   },
   {
-    name: 'Workspace',
-    desc: 'Groups, custom fields, users, timezones, backups',
-    tools: ['groups_get', 'cf_templates_get', 'users_get', 'timezones_get', 'backups_list'],
+    name: 'Users & Account',
+    desc: 'Profile, registration, password reset, and account lifecycle',
+    tools: ['fc_fetch_groups', 'fc_fetch_users', 'fc_fetch_current_user', 'fc_fetch_user', 'fc_update_current_user', 'fc_register_user', 'fc_delete_account', 'fc_request_password_reset', 'fc_apply_password_reset', 'fc_validate_email', 'fc_delete_avatar'],
   },
   {
-    name: 'Overviews',
-    desc: 'Project overview application data',
-    tools: ['overviews_get'],
+    name: 'Notifications',
+    desc: 'Inbox, mark-as-read, and project-scoped feed',
+    tools: ['fc_fetch_notifications', 'fc_fetch_all_notifications', 'fc_fetch_notifications_by_project', 'fc_update_notification_read', 'fc_edit_notifications'],
   },
   {
-    name: 'Sessions & current user',
-    desc: 'Authenticated session and profile management',
-    tools: ['sessions_current_get', 'users_current_get', 'users_get_by_id', 'users_current_edit', 'users_register'],
+    name: 'Files',
+    desc: 'Read, upload (multipart), and manage files, plus avatar upload',
+    tools: ['fc_fetch_file', 'fc_add_file_meta', 'fc_upload_file', 'fc_delete_file', 'fc_upload_avatar'],
   },
   {
-    name: 'Invitations',
-    desc: 'Pending project invitations',
-    tools: ['invitations_list', 'invitations_respond'],
+    name: 'Misc',
+    desc: 'Custom fields, linked items, overview, session, invitations, calendar feed, favorites, timezones, backups',
+    tools: ['fc_fetch_cf_templates', 'fc_fetch_linked_items', 'fc_add_linked_items', 'fc_fetch_overview', 'fc_fetch_current_session', 'fc_fetch_invitations', 'fc_respond_invitation', 'fc_fetch_calendar_items', 'fc_add_favorite_project', 'fc_delete_favorite_project', 'fc_fetch_timezones', 'fc_fetch_backups', 'fc_fetch_wipe_current'],
   },
   {
-    name: 'Avatars',
-    desc: 'Upload (multipart) or reset profile avatar',
-    tools: ['avatar_upload', 'avatar_delete'],
-  },
-  {
-    name: 'Validations',
-    desc: 'Validate addressable identifiers',
-    tools: ['validations_email'],
-  },
-  {
-    name: 'Account lifecycle',
-    desc: 'Destructive — password reset and account deletion',
-    tools: ['wipe_current_get', 'wipe_current_delete', 'password_reset_request', 'password_reset_apply'],
+    name: 'High-level helpers',
+    desc: 'Friendly, human-readable-name convenience wrappers',
+    tools: ['fc_get_groups_projects', 'fc_add_item_by_names', 'fc_add_comment_by_names', 'fc_update_status'],
   },
 ];
 
 const TOTAL_TOOLS = TOOL_GROUPS.reduce((n, g) => n + g.tools.length, 0);
+
+const SETUP_STEPS = [
+  {
+    src: '/add-claude-desktop/0-settings.png',
+    caption: <>Claude menu → <strong>Settings…</strong></>,
+  },
+  {
+    src: '/add-claude-desktop/1-connectors.png',
+    caption: <><strong>Connectors</strong> in the sidebar, then <strong>Add</strong>.</>,
+  },
+  {
+    src: '/add-claude-desktop/2-custom.png',
+    caption: <><strong>Add custom connector</strong>.</>,
+  },
+  {
+    src: '/add-claude-desktop/3-add.png',
+    caption: (
+      <>
+        Name it <strong>Freedcamp-MCP</strong>, paste <code>{MCP_URL}</code>, then{' '}
+        <strong>Continue</strong>.
+      </>
+    ),
+  },
+  {
+    src: '/add-claude-desktop/4-mcp.png',
+    caption: (
+      <>
+        OAuth is auto-detected — leave the defaults (<em>Always required</em>,{' '}
+        <em>No client ID — register one automatically</em>) and click <strong>Add</strong>.
+      </>
+    ),
+  },
+  {
+    src: '/add-claude-desktop/5-add-credentials.png',
+    caption: (
+      <>
+        Your browser opens Freedcamp's sign-in page — enter your <strong>API key</strong> and{' '}
+        <strong>API secret</strong>, then <strong>Authorize</strong>.
+      </>
+    ),
+  },
+];
 
 function Code({ children, lang }) {
   const [copied, setCopied] = useState(false);
@@ -160,16 +162,16 @@ function Code({ children, lang }) {
 }
 
 const TABS = [
-  { id: 'claude-code', label: 'Claude Code' },
   { id: 'claude-desktop', label: 'Claude Desktop' },
+  { id: 'claude-code', label: 'Claude Code' },
   { id: 'cursor', label: 'Cursor / Cline / Continue' },
   { id: 'codex', label: 'Codex CLI' },
-  { id: 'chatgpt', label: 'ChatGPT Desktop' },
+  { id: 'chatgpt', label: 'ChatGPT' },
   { id: 'curl', label: 'Verify with curl' },
 ];
 
-function Quickstart() {
-  const [tab, setTab] = useState('claude-code');
+function Quickstart({ onOpenImage }) {
+  const [tab, setTab] = useState('claude-desktop');
   return (
     <div className="quickstart">
       <div className="tabs">
@@ -185,102 +187,95 @@ function Quickstart() {
         ))}
       </div>
 
-      {tab === 'claude-code' && (
-        <div className="tabs__panel">
-          <p>One command — registers the server with the Claude Code CLI.</p>
-          <Code lang="bash">{`claude mcp add freedcamp \\
-  --transport http \\
-  ${MCP_URL} \\
-  --header "X-Freedcamp-Api-Key: YOUR_KEY" \\
-  --header "X-Freedcamp-Api-Secret: YOUR_SECRET"`}</Code>
-          <p className="muted">Verify it registered:</p>
-          <Code lang="bash">{`claude mcp list`}</Code>
-        </div>
-      )}
-
       {tab === 'claude-desktop' && (
         <div className="tabs__panel">
           <p>
-            <strong>One-command install</strong> — autodetects your Claude Desktop config
-            path, preserves existing servers, and backs up the previous file.
+            Every client below uses <strong>OAuth 2.1</strong> — no headers, no config-file
+            secrets. Claude Desktop's connector UI walks you through it:
           </p>
-          <Code lang="bash">{`curl -fsSL https://mcp.freedcamp.top/install.js | node - YOUR_KEY YOUR_SECRET`}</Code>
-          <p className="muted">Or with environment variables:</p>
-          <Code lang="bash">{`FREEDCAMP_API_KEY=... FREEDCAMP_API_SECRET=... \\
-  curl -fsSL https://mcp.freedcamp.top/install.js | node -`}</Code>
-          <p className="muted">Or edit the config by hand:</p>
-          <Code lang="json">{`{
-  "mcpServers": {
-    "freedcamp": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "fc-remote-mcp",
-        "${MCP_URL}",
-        "--transport",
-        "http-only",
-        "--header",
-        "X-Freedcamp-Api-Key: YOUR_KEY",
-        "--header",
-        "X-Freedcamp-Api-Secret: YOUR_SECRET"
-      ]
-    }
-  }
-}`}</Code>
+          <ol className="steps">
+            {SETUP_STEPS.map((s) => (
+              <li key={s.src}>
+                {s.caption}
+                <button
+                  type="button"
+                  className="gallery__item"
+                  style={{ maxWidth: 360, marginTop: 12 }}
+                  onClick={() => onOpenImage(s.src)}
+                  aria-label="Open screenshot"
+                >
+                  <img src={s.src} alt="" loading="lazy" />
+                </button>
+              </li>
+            ))}
+          </ol>
           <div className="callout">
-            <strong>Then fully quit and restart Claude Desktop</strong> (Cmd+Q on macOS — closing
-            the window isn't enough). The 100+ Freedcamp tools will appear in the tools menu.
+            <strong>That's it</strong> — Claude Desktop stores and refreshes the token itself.
+            The {TOTAL_TOOLS}+ Freedcamp tools appear in the tools menu right away, no restart
+            needed.
           </div>
+        </div>
+      )}
+
+      {tab === 'claude-code' && (
+        <div className="tabs__panel">
+          <p>Register the server, then finish the one-time browser sign-in.</p>
+          <Code lang="bash">{`claude mcp add --transport http freedcamp ${MCP_URL}`}</Code>
+          <p className="muted">
+            <code>claude mcp list</code> will show it as "Needs authentication" — finish it by
+            selecting <code>freedcamp</code> and choosing <em>Authenticate</em>, or from inside a
+            session:
+          </p>
+          <Code lang="bash">{`/mcp`}</Code>
+          <p className="muted">
+            Your browser opens Freedcamp's sign-in page — enter your API key + secret once.
+            Claude Code stores the token and refreshes it automatically after that.
+          </p>
         </div>
       )}
 
       {tab === 'cursor' && (
         <div className="tabs__panel">
-          <p>Most MCP clients support HTTP transport with custom headers natively.</p>
+          <p>
+            Any MCP client with OAuth discovery (Cursor, Cline, Continue, Windsurf, …) just needs
+            the URL — no headers to manage.
+          </p>
           <Code lang="json">{`{
   "mcpServers": {
     "freedcamp": {
-      "url": "${MCP_URL}",
-      "transport": "http",
-      "headers": {
-        "X-Freedcamp-Api-Key":    "YOUR_KEY",
-        "X-Freedcamp-Api-Secret": "YOUR_SECRET"
-      }
+      "url": "${MCP_URL}"
     }
   }
 }`}</Code>
           <p className="muted">
-            If a client doesn't accept custom headers, fall back to the <code>fc-remote-mcp</code>{' '}
-            stdio bridge from the Claude Desktop tab.
+            The client detects the <code>WWW-Authenticate</code> challenge, registers itself
+            automatically (Dynamic Client Registration), and opens your browser to Freedcamp's
+            sign-in page. Enter your API key + secret once — the client stores and refreshes the
+            token from then on.
           </p>
         </div>
       )}
 
       {tab === 'codex' && (
         <div className="tabs__panel">
-          <p>
-            <strong>One-command install</strong> — autodetects <code>~/.codex/config.toml</code>,
-            preserves every other <code>[mcp_servers.*]</code> block and top-level key, backs up
-            the previous file.
+          <p>Requires a recent Codex CLI — check whether yours has the <code>mcp add</code>/<code>login</code> command group:</p>
+          <Code lang="bash">{`codex mcp add --help`}</Code>
+          <p className="muted">
+            If that errors, or doesn't list a <code>--url</code> flag, update first — older
+            builds' <code>codex mcp</code> only runs Codex itself as a server and won't recognize{' '}
+            <code>add</code>/<code>login</code> at all:
           </p>
-          <Code lang="bash">{`curl -fsSL https://mcp.freedcamp.top/install-codex.js | node - YOUR_KEY YOUR_SECRET`}</Code>
-          <p className="muted">Or with environment variables:</p>
-          <Code lang="bash">{`FREEDCAMP_API_KEY=... FREEDCAMP_API_SECRET=... \\
-  curl -fsSL https://mcp.freedcamp.top/install-codex.js | node -`}</Code>
-          <p className="muted">Or edit the config by hand:</p>
+          <Code lang="bash">{`npm install -g @openai/codex@latest`}</Code>
+          <p className="muted">Then add the server and sign in:</p>
+          <Code lang="bash">{`codex mcp add freedcamp --url ${MCP_URL}
+codex mcp login freedcamp`}</Code>
+          <p className="muted">Or edit <code>~/.codex/config.toml</code> by hand instead of <code>mcp add</code>:</p>
           <Code lang="toml">{`[mcp_servers.freedcamp]
-command = "npx"
-args = [
-  "-y",
-  "fc-remote-mcp",
-  "${MCP_URL}",
-  "--transport", "http-only",
-  "--header", "X-Freedcamp-Api-Key: YOUR_KEY",
-  "--header", "X-Freedcamp-Api-Secret: YOUR_SECRET"
-]`}</Code>
+url = "${MCP_URL}"`}</Code>
           <div className="callout">
-            Then <strong>restart Codex CLI</strong> — the Freedcamp tools become available on the
-            next session.
+            <code>codex mcp login</code> opens your browser to Freedcamp's sign-in page — enter
+            your API key + secret once. Codex stores and refreshes the token after that. Check
+            status any time with <code>codex mcp list</code>.
           </div>
         </div>
       )}
@@ -288,35 +283,47 @@ args = [
       {tab === 'chatgpt' && (
         <div className="tabs__panel">
           <p>
-            ChatGPT <em>Custom Connectors</em> (Pro / Team / Enterprise / Edu) currently accept
-            either an OAuth-discoverable MCP server or <strong>one</strong> auth header. Because
-            Freedcamp needs <strong>two</strong> headers (key + secret), it doesn't drop in
-            directly.
+            ChatGPT <em>Custom Connectors</em> (Pro / Team / Enterprise / Edu) now connect
+            directly — the OAuth flow removes the old two-header limitation, no proxy needed.
           </p>
-          <div className="callout">
-            <strong>Recommended:</strong> use <strong>Codex CLI</strong> (next tab) instead — it
-            runs <code>fc-remote-mcp</code> as a local stdio bridge and supports multiple headers
-            natively.
-          </div>
-          <p className="muted">
-            Alternative: stand up a tiny one-header proxy that accepts{' '}
-            <code>Authorization: Bearer KEY:SECRET</code>, splits it back into the two Freedcamp
-            headers, and forwards to <code>{MCP_URL}</code>. Then point a custom connector at
-            your proxy URL. Any small Cloudflare Worker or Express handler works.
-          </p>
+          <ol className="steps">
+            <li>
+              Enable <strong>Developer mode</strong> (Settings → Apps → Advanced settings, or
+              Settings → Connectors → Advanced, depending on plan/workspace).
+            </li>
+            <li>
+              Settings → <strong>Connectors</strong> → <strong>Create</strong>.
+            </li>
+            <li>
+              Name it "Freedcamp", paste <code>{MCP_URL}</code> as the MCP server URL, and set
+              Authentication to <strong>OAuth</strong>.
+            </li>
+            <li>
+              Click <strong>Create</strong> — ChatGPT redirects you to Freedcamp's sign-in page.
+              Enter your API key + secret once.
+            </li>
+          </ol>
         </div>
       )}
 
       {tab === 'curl' && (
         <div className="tabs__panel">
-          <p>Sanity-check the endpoint and list all advertised tools:</p>
+          <p>
+            OAuth means <code>tools/list</code> needs a bearer token from a completed sign-in —
+            but you can sanity-check the server without one:
+          </p>
+          <Code lang="bash">{`curl -s https://mcp-oauth.freedcamp.top/.well-known/oauth-authorization-server | jq`}</Code>
+          <p className="muted">Confirm the process is alive:</p>
+          <Code lang="bash">{`curl -s https://mcp-oauth.freedcamp.top/healthz`}</Code>
+          <p className="muted">
+            To list all ~{TOTAL_TOOLS} tools with curl, complete the browser sign-in through any
+            client above first, then reuse the resulting bearer token:
+          </p>
           <Code lang="bash">{`curl -X POST ${MCP_URL} \\
   -H 'Content-Type: application/json' \\
   -H 'Accept: application/json, text/event-stream' \\
-  -H 'X-Freedcamp-Api-Key: YOUR_KEY' \\
-  -H 'X-Freedcamp-Api-Secret: YOUR_SECRET' \\
+  -H 'Authorization: Bearer YOUR_TOKEN' \\
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | jq '.result.tools[].name'`}</Code>
-          <p className="muted">You should see ~{TOTAL_TOOLS} tool names.</p>
         </div>
       )}
     </div>
@@ -414,7 +421,7 @@ export default function App() {
       <main id="top">
         <section className="hero">
           <div className="hero__pill">
-            <span className="dot" /> Hosted &middot; Multi-tenant &middot; Zero install
+            <span className="dot" /> Hosted &middot; OAuth 2.1 &middot; Zero install
           </div>
           <h1>
             Project management for <span className="grad">any AI assistant</span>.
@@ -422,7 +429,8 @@ export default function App() {
           <p className="hero__lead">
             A hosted Model Context Protocol server that exposes the Freedcamp API to Claude
             Desktop, Claude Code, ChatGPT, Cursor, Cline, Continue, and any other MCP-compatible
-            client — <strong>{TOTAL_TOOLS}+ tools</strong> in a single endpoint.
+            client. Sign in once with OAuth — no headers, no secrets in config files —{' '}
+            <strong>{TOTAL_TOOLS}+ tools</strong> in a single endpoint.
           </p>
 
           <div className="hero__endpoint">
@@ -464,9 +472,10 @@ export default function App() {
               Point your client at one URL. No server to run, no Docker, no cron. The endpoint is
               maintained for you.
             </Card>
-            <Card icon="🔐" title="Per-user credentials">
-              Each request carries your own Freedcamp API key + secret as headers. Sessions never
-              mix. Credentials are redacted from logs and never persisted to disk.
+            <Card icon="🔐" title="One-time OAuth sign-in">
+              Standard OAuth 2.1. Enter your Freedcamp API key + secret once in your browser —
+              your client stores and refreshes the token. No headers, no plaintext secrets in
+              config files.
             </Card>
             <Card icon="🧰" title={`${TOTAL_TOOLS}+ tools, one endpoint`}>
               Tasks, lists, comments, events, discussions, files, issues, milestones, CRM, time,
@@ -479,7 +488,7 @@ export default function App() {
           id="credentials"
           eyebrow="Step 1"
           title="Get your Freedcamp API credentials."
-          lead="Generate a key and secret in Freedcamp — these two values are the only thing you need."
+          lead="Generate a key and secret in Freedcamp — you'll enter them once during the OAuth sign-in, never pasted into a config file."
         >
           <ol className="steps">
             <li>
@@ -494,7 +503,10 @@ export default function App() {
               Generate an API key. Copy both the <code>API Key</code> and the{' '}
               <code>API Secret</code>.
             </li>
-            <li>Plug them into your AI client config below.</li>
+            <li>
+              Connect a client below — you'll paste these into Freedcamp's own sign-in page, not
+              into your AI client's config.
+            </li>
           </ol>
         </Section>
 
@@ -504,12 +516,12 @@ export default function App() {
           title="Connect your AI client."
           lead={
             <>
-              The same configuration shape works for every MCP-compatible client. The URL must
-              end in <code>/mcp</code> — the root returns server metadata.
+              Every client speaks the same OAuth 2.1 flow — point it at the URL below and sign in
+              when prompted. The URL must end in <code>/mcp</code>.
             </>
           }
         >
-          <Quickstart />
+          <Quickstart onOpenImage={setLightbox} />
         </Section>
 
         <Section
@@ -638,37 +650,39 @@ export default function App() {
           id="auth"
           eyebrow="Step 3"
           title="Authentication & security."
-          lead="Two headers per request. Stateless, redacted, rate-limited."
+          lead="Standard OAuth 2.1 — sign in once in your browser, your client handles the rest from there."
         >
-          <div className="table">
-            <div className="table__row table__row--head">
-              <div>Header</div>
-              <div>Purpose</div>
-            </div>
-            <div className="table__row">
-              <div>
-                <code>X-Freedcamp-Api-Key</code>
-              </div>
-              <div>Your Freedcamp API key</div>
-            </div>
-            <div className="table__row">
-              <div>
-                <code>X-Freedcamp-Api-Secret</code>
-              </div>
-              <div>Your Freedcamp API secret</div>
-            </div>
-          </div>
+          <ol className="steps">
+            <li>
+              Your client requests <code>{MCP_URL}</code> and gets a 401 pointing at this
+              server's OAuth metadata.
+            </li>
+            <li>
+              The client registers itself dynamically (DCR) and opens your browser to{' '}
+              <code>/authorize</code>.
+            </li>
+            <li>
+              You enter your Freedcamp API key + secret — verified against the real Freedcamp API
+              before anything is issued.
+            </li>
+            <li>
+              The server returns a bearer token; your client stores it and refreshes it
+              automatically from then on.
+            </li>
+          </ol>
 
           <div className="grid grid--2 grid--mt">
-            <Card icon="🪪" title="Redacted from logs">
-              Pino redaction strips key/secret fields and headers — only an 8-char hash is kept
-              for correlation.
+            <Card icon="🔑" title="PKCE + Dynamic Client Registration">
+              A standard OAuth 2.1 authorization-code flow. No manual client setup for any client
+              that speaks MCP OAuth.
             </Card>
-            <Card icon="💾" title="Never persisted">
-              The server runs stateless / in-memory. No database, no disk writes of credentials.
+            <Card icon="🗝️" title="No server-side session to leak">
+              Bearer tokens carry your Freedcamp credentials, AES-256-GCM encrypted with a key
+              derived from a server secret — nothing is stored in a database to look up or leak.
             </Card>
-            <Card icon="🚦" title="Rate-limited per credential pair">
-              60 req/min by default. Exceeding returns JSON-RPC error <code>-32029</code>.
+            <Card icon="⏳" title="30-day expiry">
+              Tokens expire automatically after 30 days; your client re-authenticates
+              transparently.
             </Card>
             <Card icon="🔒" title="TLS end to end">
               Client → server is TLS. Server → Freedcamp is HMAC-signed HTTPS.
@@ -725,8 +739,8 @@ export default function App() {
         <Section
           id="health"
           eyebrow="Health"
-          title="Status & introspection endpoints."
-          lead="Quick checks for liveness, deep health, and server metadata."
+          title="Status & OAuth introspection endpoints."
+          lead="Quick checks for liveness and the OAuth flow."
         >
           <div className="table">
             <div className="table__row table__row--head">
@@ -737,30 +751,36 @@ export default function App() {
               <div>
                 <code>GET /healthz</code>
               </div>
-              <div>Process liveness, cache size, uptime</div>
+              <div>Process liveness</div>
             </div>
             <div className="table__row">
               <div>
-                <code>GET /healthz/deep</code>
+                <code>GET /.well-known/oauth-authorization-server</code>
               </div>
-              <div>Whether the server can currently reach Freedcamp</div>
+              <div>OAuth metadata — authorization, token, and registration endpoints</div>
             </div>
             <div className="table__row">
               <div>
-                <code>GET /</code>
+                <code>GET /authorize</code>
               </div>
-              <div>Server metadata, endpoint URLs, rate-limit config</div>
+              <div>The sign-in page — enter your Freedcamp API key + secret</div>
+            </div>
+            <div className="table__row">
+              <div>
+                <code>ALL /mcp</code>
+              </div>
+              <div>The MCP endpoint itself — requires a bearer token from the flow above</div>
             </div>
           </div>
         </Section>
 
         <section className="cta">
           <h2>
-            Ready in <span className="grad">a single command.</span>
+            Ready in <span className="grad">a single sign-in.</span>
           </h2>
           <p className="lead">
-            Generate your Freedcamp API key, paste two headers into your AI client, and start
-            asking.
+            Generate your Freedcamp API key, point your AI client at the endpoint, and authorize
+            once.
           </p>
           <div className="cta__buttons">
             <a
@@ -787,7 +807,7 @@ export default function App() {
           </div>
           <div className="footer__links">
             <a href={MCP_URL}>Endpoint</a>
-            <a href="https://mcp.freedcamp.top/healthz" target="_blank" rel="noreferrer">
+            <a href="https://mcp-oauth.freedcamp.top/healthz" target="_blank" rel="noreferrer">
               Health
             </a>
             <a href="https://modelcontextprotocol.io" target="_blank" rel="noreferrer">
