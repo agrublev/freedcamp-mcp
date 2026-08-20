@@ -23,6 +23,14 @@ import * as users from "./operations/users.js";
 import * as notifications from "./operations/notifications.js";
 import * as misc from "./operations/misc.js";
 import * as files from "./operations/files.js";
+import * as helpers from "./operations/helpers.js";
+
+// ── Transport selection ────────────────────────────────────────────────────
+// stdio (default): single user, credentials come from FREEDCAMP_API_KEY /
+// FREEDCAMP_API_SECRET env vars. http: multi-user, each MCP client completes
+// an OAuth flow and supplies its own Freedcamp API credentials (see http.js /
+// oauth.js) — no shared env credentials are required in that mode.
+const useHttpTransport = (process.env.MCP_TRANSPORT || "stdio").toLowerCase() === "http";
 
 const apiKey = process.env.FREEDCAMP_API_KEY;
 const apiSecret = process.env.FREEDCAMP_API_SECRET;
@@ -31,17 +39,33 @@ const missingCreds = [!apiKey && "FREEDCAMP_API_KEY", !apiSecret && "FREEDCAMP_A
     Boolean
 );
 
-if (missingCreds.length) {
+if (!useHttpTransport && missingCreds.length) {
     console.error("=== LOGIN ERROR ===");
     console.error(`Missing required credential env var(s): ${missingCreds.join(", ")}`);
     console.error("The Freedcamp MCP server cannot authenticate without these.");
     console.error("Pass them when launching the server, e.g.:");
     console.error("  FREEDCAMP_API_KEY=xxx FREEDCAMP_API_SECRET=yyy npx freedcamp-mcp-server");
+    console.error("(Or run with MCP_TRANSPORT=http to let users authorize via OAuth instead.)");
     process.exit(1);
 }
 
-const fc = new FreedcampHandler(apiKey, apiSecret, undefined, { sessionFilePath: null });
-await fc.initialize();
+// ── OAuth token → Freedcamp handler cache (HTTP mode only) ────────────────
+// Maps bearer tokens to a lazily created, initialized FreedcampHandler so
+// that a single process can safely serve many Freedcamp accounts at once.
+const httpHandlers = new Map();
+
+function handlerForToken(token) {
+    let handler = httpHandlers.get(token);
+    if (!handler) {
+        handler = new FreedcampHandler(undefined, undefined, undefined, { sessionFilePath: null });
+        httpHandlers.set(token, handler);
+    }
+    return handler;
+}
+
+function dropHandlerForToken(token) {
+    httpHandlers.delete(token);
+}
 
 // ── Tool annotations ───────────────────────────────────────────────────────
 // Derived from naming convention rather than repeated per tool: every
@@ -336,7 +360,12 @@ const tools = [
     // Notifications
     {
         name: "fc_fetch_notifications",
-        description: "Get recent notifications",
+        description: "Get recent notifications (last 60 days, following=1)",
+        schema: z.object({})
+    },
+    {
+        name: "fc_fetch_all_notifications",
+        description: "Get all notifications, unfiltered (no date/following restriction)",
         schema: z.object({})
     },
     {
@@ -425,36 +454,63 @@ const tools = [
     },
     { name: "fc_fetch_timezones", description: "List available timezones", schema: z.object({}) },
     { name: "fc_fetch_backups", description: "List account backups", schema: z.object({}) },
-    { name: "fc_fetch_wipe_current", description: "Get wipe current info", schema: z.object({}) }
+    { name: "fc_fetch_wipe_current", description: "Get wipe current info", schema: z.object({}) },
+    // Helpers (human-readable-name convenience wrappers)
+    {
+        name: "fc_get_groups_projects",
+        description: "Get all groups, projects, and their apps, keyed by human-readable name",
+        schema: helpers.GetGroupsProjectsSchema
+    },
+    {
+        name: "fc_add_item_by_names",
+        description: "Add an item (e.g. task) to an app inside a project, by human-readable names",
+        schema: helpers.AddItemByNamesSchema
+    },
+    {
+        name: "fc_add_comment_by_names",
+        description: "Add a comment to any item, specifying the app by human-readable name",
+        schema: helpers.AddCommentByNamesSchema
+    },
+    {
+        name: "fc_update_status",
+        description: "Update the status of a task",
+        schema: helpers.UpdateStatusSchema
+    }
 ];
 
 // ── Server setup ───────────────────────────────────────────────────────────
 
-const server = new Server(
-    { name: "freedcamp-mcp-server", version: VERSION },
-    { capabilities: { tools: {} } }
-);
+/**
+ * Builds an MCP server wired to the given FreedcampHandler. In stdio mode
+ * this is called once with the env-credential handler; in HTTP mode it is
+ * called once per OAuth-authorized user (see http.js).
+ */
+function buildServer(fc) {
+    const server = new Server(
+        { name: "freedcamp-mcp-server", version: VERSION },
+        { capabilities: { tools: {} } }
+    );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: tools.map(({ name, description, schema, outputSchema }) => ({
-        name,
-        description,
-        inputSchema: zodToJsonSchema(schema),
-        outputSchema: zodToJsonSchema(outputSchema || ApiResponseSchema),
-        annotations: inferAnnotations(name)
-    }))
-}));
+    server.setRequestHandler(ListToolsRequestSchema, async () => ({
+        tools: tools.map(({ name, description, schema, outputSchema }) => ({
+            name,
+            description,
+            inputSchema: zodToJsonSchema(schema),
+            outputSchema: zodToJsonSchema(outputSchema || ApiResponseSchema),
+            annotations: inferAnnotations(name)
+        }))
+    }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
+    server.setRequestHandler(CallToolRequestSchema, async (request) => {
+        const { name, arguments: args } = request.params;
 
-    const ok = (data) => ({
-        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        structuredContent: data
-    });
+        const ok = (data) => ({
+            content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+            structuredContent: data
+        });
 
-    try {
-        switch (name) {
+        try {
+            switch (name) {
             // Tasks
             case "fc_fetch_task":
                 return ok(await fc.fetchTask(tasks.FetchTaskSchema.parse(args)));
@@ -634,6 +690,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             // Notifications
             case "fc_fetch_notifications":
                 return ok(await fc.fetchNotifications());
+            case "fc_fetch_all_notifications":
+                return ok(await fc.fetchAllNotifications());
             case "fc_fetch_notifications_by_project":
                 return ok(
                     await fc.fetchNotificationsByProject(
@@ -689,30 +747,69 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             case "fc_fetch_wipe_current":
                 return ok(await fc.fetchWipeCurrent());
 
+            // Helpers (human-readable-name convenience wrappers)
+            case "fc_get_groups_projects":
+                return ok(helpers.getGroupsAndProjects(fc.getSession()));
+            case "fc_add_item_by_names": {
+                const { project_name, app_name, title } = helpers.AddItemByNamesSchema.parse(args);
+                return ok(
+                    await helpers.addItemByNames({
+                        fc,
+                        session: fc.getSession(),
+                        title,
+                        project_name,
+                        app_name
+                    })
+                );
+            }
+            case "fc_add_comment_by_names":
+                return ok(
+                    await helpers.addCommentByNames({ fc, ...helpers.AddCommentByNamesSchema.parse(args) })
+                );
+            case "fc_update_status":
+                return ok(await helpers.updateStatus({ fc, ...helpers.UpdateStatusSchema.parse(args) }));
+
             default:
                 throw new Error(`Unknown tool: ${name}`);
+            }
+        } catch (err) {
+            const message =
+                err instanceof z.ZodError
+                    ? `Invalid input for ${name}: ${err.errors
+                          .map((e) => `${e.path.join(".") || "(root)"}: ${e.message}`)
+                          .join("; ")}`
+                    : err.message || String(err);
+            return {
+                isError: true,
+                content: [{ type: "text", text: message }]
+            };
         }
-    } catch (err) {
-        const message =
-            err instanceof z.ZodError
-                ? `Invalid input for ${name}: ${err.errors
-                      .map((e) => `${e.path.join(".") || "(root)"}: ${e.message}`)
-                      .join("; ")}`
-                : err.message || String(err);
-        return {
-            isError: true,
-            content: [{ type: "text", text: message }]
-        };
-    }
-});
+    });
 
-async function runServer() {
+    return server;
+}
+
+async function runStdioServer() {
+    const fc = new FreedcampHandler(apiKey, apiSecret, undefined, { sessionFilePath: null });
+    await fc.initialize();
     const transport = new StdioServerTransport();
-    await server.connect(transport);
+    await buildServer(fc).connect(transport);
     console.error("Freedcamp MCP Server running on stdio");
 }
 
-runServer().catch((error) => {
-    console.error("Fatal error:", error);
-    process.exit(1);
-});
+async function runHttpServer() {
+    const { startHttpServer } = await import("./http.js");
+    await startHttpServer({ buildServer, handlerForToken, dropHandlerForToken });
+}
+
+if (useHttpTransport) {
+    runHttpServer().catch((error) => {
+        console.error("Fatal error:", error);
+        process.exit(1);
+    });
+} else {
+    runStdioServer().catch((error) => {
+        console.error("Fatal error:", error);
+        process.exit(1);
+    });
+}

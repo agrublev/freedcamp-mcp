@@ -6,10 +6,10 @@ MCP server that exposes the Freedcamp REST API (v1) as callable tools for Claude
 
 - **Language:** JavaScript (ES modules, `"type": "module"`). No TypeScript.
 - **Runtime:** Node.js
-- **MCP SDK:** `@modelcontextprotocol/sdk` 1.0.1
+- **MCP SDK:** `@modelcontextprotocol/sdk` ^1.30.0
 - **HTTP client:** axios (with HMAC-SHA1 auth interceptor, 401 auto-refresh, 429 exponential backoff)
 - **Validation:** zod + zod-to-json-schema (schemas define both tool input shapes and runtime validation)
-- **Transport:** stdio (stdin/stdout JSON-RPC)
+- **Transport:** stdio by default (stdin/stdout JSON-RPC); optional Streamable HTTP + OAuth via `MCP_TRANSPORT=http`
 
 ## Commands
 
@@ -27,12 +27,18 @@ FREEDCAMP_API_KEY=...
 FREEDCAMP_API_SECRET=...
 ```
 
-Server exits immediately if either is missing.
+Server exits immediately if either is missing (in the default `stdio` mode).
+In `http` mode (`MCP_TRANSPORT=http`) these are not required — each user
+authorizes with their own Freedcamp API key/secret via OAuth.
 
 ## Architecture
 
 ```
-index.js                 # MCP server entry — tool registry + CallTool switch
+index.js                 # MCP server entry — tool registry + CallTool switch,
+                         # buildServer(fc) factory, transport selection
+http.js                  # Streamable HTTP transport + OAuth router (MCP_TRANSPORT=http)
+oauth.js                 # FreedcampOAuthProvider — OAuthServerProvider whose /authorize
+                         # page collects + verifies Freedcamp API key/secret
 operations/
   fc-handler.js          # FreedcampHandler class — all API calls, auth, session mgmt
   schemas.js             # Shared Zod helpers (Opt, PaginationSchema)
@@ -61,13 +67,19 @@ scripts/
 
 ### How it works
 
-1. `index.js` instantiates `FreedcampHandler` with API credentials
-2. Registers ~75 tools (CRUD for tasks, lists, comments, events, discussions, issues, milestones, times, wikis, projects, CRM, users, notifications, misc)
-3. Each `CallTool` request: parse args with the tool's Zod schema -> call the matching `fc.*` method -> return JSON
-4. Auth: HMAC-SHA1 signature on every request (apiKey + timestamp hashed with apiSecret). Session token auth as fallback with auto-refresh on 401.
+1. `index.js` picks a transport from `MCP_TRANSPORT` (`stdio` default, `http` for OAuth).
+2. stdio: builds one `FreedcampHandler` from env credentials and one MCP server.
+   http: `http.js` runs `mcpAuthRouter` (OAuth endpoints) + a bearer-authed `/mcp`.
+   Each bearer token maps to a lazily created `FreedcampHandler` (from the
+   credentials the user entered on the OAuth page) and its own MCP server via
+   `buildServer(fc)`, so one process serves many Freedcamp accounts.
+3. Registers ~75 tools (CRUD for tasks, lists, comments, events, discussions, issues, milestones, times, wikis, projects, CRM, users, notifications, misc)
+4. Each `CallTool` request: parse args with the tool's Zod schema -> call the matching `fc.*` method -> return JSON
+5. Auth: HMAC-SHA1 signature on every request (apiKey + timestamp hashed with apiSecret). Session token auth as fallback with auto-refresh on 401. In http mode the per-user key/secret come from the OAuth token.
 
 ### Key patterns
 
+- **Two transports:** `stdio` (single user, env credentials) is the default; `http` (multi-user, OAuth) is opt-in via `MCP_TRANSPORT=http`. All OAuth/HTTP code lives in `oauth.js` + `http.js`; `index.js` exposes a `buildServer(fc)` factory so both share the same tool registry.
 - **Tool naming:** `fc_<verb>_<entity>` (e.g., `fc_fetch_tasks`, `fc_add_task`, `fc_edit_issue`)
 - **Zod schemas** in each `operations/*.js` define tool inputs; `common/types.js` defines response shapes
 - **`Opt(schema)`** helper wraps `schema.optional().nullable()` — use for optional fields

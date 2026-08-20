@@ -1,0 +1,1 @@
+https://freedcamp-mcp.goatcounter.com/?hl-period=week&period-start=2026-04-30&period-end=2026-05-07&filter=&group=hour&group=hour

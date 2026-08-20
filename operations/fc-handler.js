@@ -19,9 +19,8 @@ class FreedcampHandler {
         baseURL = "https://freedcamp.com/api/v1",
         { sessionFilePath } = {}
     ) {
-        if (!apiKey || !apiSecret) {
-            throw new Error("API Key and API Secret are required");
-        }
+        // Credentials may be assigned later (OAuth/HTTP mode) — validate lazily
+        // in the request interceptor so a handler can be constructed first.
         this.apiKey = apiKey;
         this.apiSecret = apiSecret;
         this.baseURL = baseURL;
@@ -60,6 +59,11 @@ class FreedcampHandler {
                     Accept: "application/json"
                 };
             } else {
+                if (!this.apiKey || !this.apiSecret) {
+                    throw new Error(
+                        "Freedcamp API credentials are not configured for this request"
+                    );
+                }
                 const timestamp = Math.floor(Date.now() / 1000).toString();
                 const message = this.apiKey + timestamp;
                 const hash = crypto
@@ -867,6 +871,10 @@ class FreedcampHandler {
         const url = `/notifications?following=1&from_ts=${moment().subtract(60, "days").format("X")}`;
         const res = await this.client.get(url);
         return res.data;
+    }
+
+    async fetchAllNotifications() {
+        return this.request("GET", "/notifications");
     }
 
     async updateNotificationRead(uid = null) {
