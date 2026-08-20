@@ -1,0 +1,154 @@
+{
+  "name": "Email → Freedcamp Task",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Build a clean, HTML-escaped task payload from the Gmail trigger output.\nconst e = $input.first().json;\n\nconst escape = (s = '') =>\n  String(s)\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;');\n\nconst subject = $input.first().json.subject.toString().slice(0, 120);\nconst from    =$input.first().json.from.value[0].address;\nconst body    = $input.first().json.text.toString().slice(0, 1500);\n\nconst description =\n  `<p><b>From:</b> ${escape(from)}</p>` +\n  `<p><b>Subject:</b> ${escape(subject)}</p>` +\n  `<p>${escape(body).replace(/\\n/g, '<br>')}</p>`;\n\nreturn [{\n  json: {\n    project_id: 3744044,\n    title: subject,\n    description,\n    status: 0\n  }\n}];"
+      },
+      "id": "012ef565-e30b-40c5-aabf-88d0f6c9c18a",
+      "name": "Build Task Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mcp.freedcamp.top/mcp",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json, text/event-stream"
+            },
+            {
+              "name": "X-Freedcamp-Api-Key",
+              "value": "{ENTER UR KEY}"
+            },
+            {
+              "name": "X-Freedcamp-Api-Secret",
+              "value": "{ENTER YOUR SECRET}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"tasks_add\",\n    \"arguments\": {\n      \"project_id\": \"{{ $json.project_id }}\",\n      \"title\":      \"{{ $json.title }}\",\n      \"description\":\"{{ $json.description }}\",\n      \"status\":      {{ $json.status }}\n    }\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "c49a1553-1a8f-465c-b0e6-270abeab4e05",
+      "name": "Freedcamp MCP — tasks_add",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        464,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Surface the created task id (or the JSON-RPC error) in a flat shape.\nconst r = $input.first().json || {};\n\nif (r.error) {\n  throw new Error(`Freedcamp MCP error ${r.error.code}: ${r.error.message}`);\n}\n\n// MCP tool responses arrive as { result: { content: [{ type: 'text', text: '<json>' }] } }\nlet payload = r.result;\nconst text = r?.result?.content?.[0]?.text;\nif (typeof text === 'string') {\n  try { payload = JSON.parse(text); } catch { payload = { raw: text }; }\n}\n\nreturn [{ json: { ok: true, task: payload } }];"
+      },
+      "id": "06c69492-cec5-403c-8659-3ea913f456a3",
+      "name": "Parse MCP Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "is:unread newer_than:1d"
+        },
+        "options": {}
+      },
+      "id": "54f5c32d-8962-461f-bf46-f140caf93a79",
+      "name": "Gmail Email Received",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "fls6AJasfI0ZA1WB",
+          "name": "Gmail account 3"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Build Task Payload": {
+      "main": [
+        [
+          {
+            "node": "Freedcamp MCP — tasks_add",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Freedcamp MCP — tasks_add": {
+      "main": [
+        [
+          {
+            "node": "Parse MCP Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Email Received": {
+      "main": [
+        [
+          {
+            "node": "Build Task Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5263d6f7-8300-42c1-bd34-92514a538e04",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5c5d7c3c4ad24fcsad59645ff4a20a8d3eb942a58cb4959a65efb51e633"
+  },
+  "id": "ltvkmnXPm8jJIeJZ",
+  "tags": []
+}
