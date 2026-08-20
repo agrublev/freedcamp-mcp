@@ -5,4 +5,7 @@ data
 logs
 session.json
 sessionB.json
+oauth-store.json
+mcp.md
+mcp-master.zip
 .DS_Store

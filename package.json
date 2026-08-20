@@ -13,7 +13,8 @@
   "files": [
     "index.js",
     "common/",
-    "operations/"
+    "operations/",
+    "src/"
   ],
   "scripts": {
     "build": "shx chmod +x index.js",

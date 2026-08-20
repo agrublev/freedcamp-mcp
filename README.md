@@ -63,6 +63,38 @@ Add to your User Settings (JSON) or `.vscode/mcp.json`:
 
 ---
 
+## Hosted OAuth (Mimic)
+
+This server hosts its own OAuth 2.1 provider so remote MCP clients that expect OAuth can connect — even though Freedcamp itself only uses HMAC API Key/Secret.
+
+You log in with **Username = API Key**, **Password = API Secret** at the hosted login page; the server validates them against `https://freedcamp.com/api/v1/sessions/current` and issues local `Bearer` tokens.
+
+```bash
+# Start hosted MCP + OAuth (no env creds needed — per-user login)
+PORT=3000 npx freedcamp-mcp-server
+# → Discovery: http://localhost:3000/.well-known/oauth-authorization-server
+# → Login:     http://localhost:3000/oauth/authorize
+# → MCP SSE:   http://localhost:3000/sse   (Bearer required)
+# → MCP HTTP:  http://localhost:3000/mcp   (POST JSON-RPC)
+
+# Fast path: get a token directly with username/password
+curl -X POST http://localhost:3000/oauth/token \
+  -d "grant_type=password" \
+  -d "username=YOUR_API_KEY" \
+  -d "password=YOUR_API_SECRET"
+# → { access_token, refresh_token }
+
+# Use it
+curl -X POST http://localhost:3000/mcp \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fc_fetch_projects","arguments":{}}}'
+```
+
+Full spec, PKCE, refresh, discovery, SSE vs stateless, and security notes: see [OAUTH.md](./OAUTH.md).
+
+---
+
 ## Tools
 
 All tools are prefixed with `fc_`.
