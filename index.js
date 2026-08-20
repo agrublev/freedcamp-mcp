@@ -250,7 +250,12 @@ const tools = [
         schema: wikis.AddWikiVersionSchema
     },
     // Projects
-    { name: "fc_fetch_projects", description: "List all Freedcamp projects", schema: z.object({}) },
+    {
+        name: "fc_fetch_projects",
+        description:
+            "List all Freedcamp projects (flat, no group/app context). Prefer fc_get_groups_projects instead — one call, human-readable, already includes groups and per-project apps.",
+        schema: z.object({})
+    },
     {
         name: "fc_fetch_project",
         description: "Get a single project",
@@ -314,7 +319,12 @@ const tools = [
         schema: crm.DeleteCrmCallSchema
     },
     // Users
-    { name: "fc_fetch_groups", description: "List all groups", schema: z.object({}) },
+    {
+        name: "fc_fetch_groups",
+        description:
+            "List all groups, without their projects/apps. Prefer fc_get_groups_projects instead — one call, human-readable, already includes each group's projects and apps.",
+        schema: z.object({})
+    },
     { name: "fc_fetch_users", description: "List all users", schema: z.object({}) },
     {
         name: "fc_fetch_current_user",
@@ -428,7 +438,8 @@ const tools = [
     },
     {
         name: "fc_fetch_current_session",
-        description: "Get the current session",
+        description:
+            "Get the current user/session, including raw groups and projects. Call this once at the start of a conversation before doing anything project-related, then reuse the result for the rest of the conversation instead of calling it again. For a ready-to-display, human-readable version prefer fc_get_groups_projects.",
         schema: z.object({})
     },
     { name: "fc_fetch_invitations", description: "List pending invitations", schema: z.object({}) },
@@ -458,7 +469,8 @@ const tools = [
     // Helpers (human-readable-name convenience wrappers)
     {
         name: "fc_get_groups_projects",
-        description: "Get all groups, projects, and their apps, keyed by human-readable name",
+        description:
+            "Get all groups, projects, and their apps, keyed by human-readable name — the preferred first call whenever a conversation needs to list, browse, or reference projects. Call it once and reuse the result (project names/IDs, group structure, per-project apps) for the rest of the conversation instead of calling it again or falling back to fc_fetch_projects/fc_fetch_groups.",
         schema: helpers.GetGroupsProjectsSchema
     },
     {
@@ -488,7 +500,17 @@ const tools = [
 function buildServer(fc) {
     const server = new Server(
         { name: "freedcamp-mcp-server", version: VERSION },
-        { capabilities: { tools: {} } }
+        {
+            capabilities: { tools: {} },
+            instructions:
+                "This server exposes the Freedcamp project management API. At the start of a " +
+                "conversation, before listing, browsing, or referencing any project, call " +
+                "fc_get_groups_projects once to get groups, projects, and their apps by " +
+                "human-readable name. Reuse that result for the rest of the conversation instead " +
+                "of calling it again — only re-fetch if the user explicitly asks to refresh, or " +
+                "after creating/deleting a project. Prefer resolving projects/apps by the names " +
+                "from that call over raw IDs when talking to the user."
+        }
     );
 
     server.setRequestHandler(ListToolsRequestSchema, async () => ({
