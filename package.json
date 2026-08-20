@@ -12,6 +12,8 @@
   },
   "files": [
     "index.js",
+    "http.js",
+    "oauth.js",
     "common/",
     "operations/"
   ],
