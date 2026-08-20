@@ -873,6 +873,10 @@ class FreedcampHandler {
         return res.data;
     }
 
+    async fetchAllNotifications() {
+        return this.request("GET", "/notifications");
+    }
+
     async updateNotificationRead(uid = null) {
         return this.request("POST", "/notifications", {
             data: { new_state: "read", items: [{ item_u_key: uid }] }

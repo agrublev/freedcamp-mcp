@@ -23,6 +23,7 @@ import * as users from "./operations/users.js";
 import * as notifications from "./operations/notifications.js";
 import * as misc from "./operations/misc.js";
 import * as files from "./operations/files.js";
+import * as helpers from "./operations/helpers.js";
 
 // ── Transport selection ────────────────────────────────────────────────────
 // stdio (default): single user, credentials come from FREEDCAMP_API_KEY /
@@ -359,7 +360,12 @@ const tools = [
     // Notifications
     {
         name: "fc_fetch_notifications",
-        description: "Get recent notifications",
+        description: "Get recent notifications (last 60 days, following=1)",
+        schema: z.object({})
+    },
+    {
+        name: "fc_fetch_all_notifications",
+        description: "Get all notifications, unfiltered (no date/following restriction)",
         schema: z.object({})
     },
     {
@@ -448,7 +454,28 @@ const tools = [
     },
     { name: "fc_fetch_timezones", description: "List available timezones", schema: z.object({}) },
     { name: "fc_fetch_backups", description: "List account backups", schema: z.object({}) },
-    { name: "fc_fetch_wipe_current", description: "Get wipe current info", schema: z.object({}) }
+    { name: "fc_fetch_wipe_current", description: "Get wipe current info", schema: z.object({}) },
+    // Helpers (human-readable-name convenience wrappers)
+    {
+        name: "fc_get_groups_projects",
+        description: "Get all groups, projects, and their apps, keyed by human-readable name",
+        schema: helpers.GetGroupsProjectsSchema
+    },
+    {
+        name: "fc_add_item_by_names",
+        description: "Add an item (e.g. task) to an app inside a project, by human-readable names",
+        schema: helpers.AddItemByNamesSchema
+    },
+    {
+        name: "fc_add_comment_by_names",
+        description: "Add a comment to any item, specifying the app by human-readable name",
+        schema: helpers.AddCommentByNamesSchema
+    },
+    {
+        name: "fc_update_status",
+        description: "Update the status of a task",
+        schema: helpers.UpdateStatusSchema
+    }
 ];
 
 // ── Server setup ───────────────────────────────────────────────────────────
@@ -663,6 +690,8 @@ function buildServer(fc) {
             // Notifications
             case "fc_fetch_notifications":
                 return ok(await fc.fetchNotifications());
+            case "fc_fetch_all_notifications":
+                return ok(await fc.fetchAllNotifications());
             case "fc_fetch_notifications_by_project":
                 return ok(
                     await fc.fetchNotificationsByProject(
@@ -717,6 +746,28 @@ function buildServer(fc) {
                 return ok(await fc.fetchBackups());
             case "fc_fetch_wipe_current":
                 return ok(await fc.fetchWipeCurrent());
+
+            // Helpers (human-readable-name convenience wrappers)
+            case "fc_get_groups_projects":
+                return ok(helpers.getGroupsAndProjects(fc.getSession()));
+            case "fc_add_item_by_names": {
+                const { project_name, app_name, title } = helpers.AddItemByNamesSchema.parse(args);
+                return ok(
+                    await helpers.addItemByNames({
+                        fc,
+                        session: fc.getSession(),
+                        title,
+                        project_name,
+                        app_name
+                    })
+                );
+            }
+            case "fc_add_comment_by_names":
+                return ok(
+                    await helpers.addCommentByNames({ fc, ...helpers.AddCommentByNamesSchema.parse(args) })
+                );
+            case "fc_update_status":
+                return ok(await helpers.updateStatus({ fc, ...helpers.UpdateStatusSchema.parse(args) }));
 
             default:
                 throw new Error(`Unknown tool: ${name}`);
