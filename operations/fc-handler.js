@@ -865,8 +865,11 @@ class FreedcampHandler {
             }
             return null;
         case "unbill":
-            if (before && status(before) === 2) {
-                return "Entry was already in progress before 'unbill' (status 2), so nothing changed.";
+            // unbill is a no-op on any entry that is not currently billed (status !== 1),
+            // not just status 2 (e.g. status 0 not-started is already "unbilled").
+            if (before && status(before) !== 1) {
+                return `Entry was not billed before 'unbill' (status ${before.status}), ` +
+                    "so nothing changed.";
             }
             if (after && status(after) !== 2) {
                 return `Entry was not moved back to in-progress: status is ${after.status} (expected 2).`;
