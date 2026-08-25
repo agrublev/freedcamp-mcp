@@ -14,6 +14,8 @@ MCP Server for the [Freedcamp](https://freedcamp.com) API, enabling project mana
 
 ## Setup
 
+Requires Node.js 18 or newer.
+
 ### API Credentials
 
 1. Log in to your Freedcamp account
@@ -139,8 +141,8 @@ All tools are prefixed with `fc_`.
 |------|-------------|
 | `fc_fetch_task` | Get a task by ID (`task_id`) |
 | `fc_fetch_tasks` | List tasks (`project_id`, optional: `limit`, `offset`, `filters`) |
-| `fc_add_task` | Create a task (`title`, `project_id`, optional: `description`, `task_group_id`, `priority`, `assigned_to_id`, `due_date`, `status`) |
-| `fc_update_task` | Update a task (`task_id`, optional: `title`, `description`, `status`, `priority`, `assigned_to_id`, `due_date`) |
+| `fc_add_task` | Create a task (`title`, `project_id`, optional: `description`, `task_group_id`, `priority`, `assigned_to_id`, `due_date`, `status`, `h_parent_id` to create a subtask) |
+| `fc_update_task` | Update a task (`task_id`, optional: `title`, `description`, `status`, `priority`, `assigned_to_id`, `due_date`, `h_parent_id`) |
 | `fc_delete_task` | Delete a task (`task_id`) |
 
 **Task filters** (passed inside `filters` object):
@@ -213,10 +215,10 @@ All tools are prefixed with `fc_`.
 |------|-------------|
 | `fc_fetch_times` | List time entries (`project_id`, optional: `limit`, `offset`) |
 | `fc_fetch_time` | Get a time entry (`time_id`) |
-| `fc_add_time` | Log time (`project_id`, `date`, `minutes_count`, optional: `description`, `assigned_to_id`, `f_started`, `f_billed`) |
+| `fc_add_time` | Log time (`project_id`, `date`, `minutes_count`, optional: `description`, `assigned_to_id` (defaults to the authenticated user; fails if it cannot be determined), `f_started` (1/true to start the timer), `f_billed`). If `f_started` is set but the entry comes back with `started_ts` null, the call fails with `isError` rather than a false success. |
 | `fc_edit_time` | Edit a time entry (`time_id`, optional fields) |
 | `fc_delete_time` | Delete a time entry (`time_id`) |
-| `fc_time_action` | Perform action on a timer (`time_id`, `action`: `start`/`stop`/`bill`/`unbill`) |
+| `fc_time_action` | Perform action on a timer (`time_id`, `action`: `start`/`stop`/`bill`/`unbill`). The entry's state is compared before and after; if nothing actually changed (e.g. starting an already-running timer), the call fails with `isError: true` instead of a false success. |
 
 ### Wikis
 
@@ -273,6 +275,16 @@ All tools are prefixed with `fc_`.
 | `fc_fetch_notifications_by_project` | Get notifications for a project (`project_id`) |
 | `fc_update_notification_read` | Mark notification as read (optional: `uid`) |
 | `fc_edit_notifications` | Bulk update notification state (`items`, optional: `new_state`) |
+
+### Files
+
+| Tool | Description |
+|------|-------------|
+| `fc_fetch_file` | Get file metadata (`file_id`) |
+| `fc_add_file_meta` | Create a file metadata record (optional: `project_id`, `group_id`, `application_id`, `item_id`, `comment_id`, `temporary`) |
+| `fc_upload_file` | Upload a file (`file_path` or `content_base64`; optional: `filename`, `mime_type`, `project_id`, `item_id`, …) |
+| `fc_delete_file` | Delete a file (`file_id`) |
+| `fc_upload_avatar` | Upload an avatar for the current user (`file_path` or `content_base64`) |
 
 ### Miscellaneous
 

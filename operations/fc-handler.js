@@ -12,6 +12,19 @@ import { filterMap, statuses } from "./constants.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/**
+ * Thrown by timeAction when the Freedcamp API returned 200 OK but the entry's
+ * state did not actually change (a silent no-op). The CallTool handler surfaces
+ * this as an isError:true result so the failure is not mistaken for success.
+ */
+export class TimeActionNoopError extends Error {
+    constructor(message, details = {}) {
+        super(message);
+        this.name = "TimeActionNoopError";
+        this.details = details;
+    }
+}
+
 class FreedcampHandler {
     constructor(
         apiKey,
@@ -135,12 +148,17 @@ class FreedcampHandler {
                 this.sessionData = savedData.sessionData || savedData;
                 this.sessionToken = savedData.sessionToken || null;
                 this.userId = savedData.userId || this.sessionData?.user_id || null;
+                return;
             } catch (error) {
                 console.error("Error reading session file:", error.message);
-                await this.fetchSession();
             }
-        } else {
+        }
+        try {
             await this.fetchSession();
+        } catch (error) {
+            // Non-fatal: HMAC-signed requests work without a session token, and the
+            // session is re-fetched automatically on the first 401 response.
+            console.error("Session prefetch failed (falling back to HMAC auth):", error.message);
         }
     }
 
@@ -283,7 +301,8 @@ class FreedcampHandler {
         due_date,
         status,
         completed_date,
-        attached_ids
+        attached_ids,
+        h_parent_id
     }) {
         return this.request("POST", "/tasks", {
             data: {
@@ -296,7 +315,8 @@ class FreedcampHandler {
                 due_date,
                 status,
                 completed_date,
-                attached_ids
+                attached_ids,
+                h_parent_id
             }
         });
     }
@@ -309,10 +329,20 @@ class FreedcampHandler {
         status = null,
         priority = null,
         assigned_to_id = null,
-        due_date = null
+        due_date = null,
+        h_parent_id = null
     }) {
         return this.request("POST", `/tasks/${task_id}`, {
-            data: { title, description, task_group_id, status, priority, assigned_to_id, due_date }
+            data: {
+                title,
+                description,
+                task_group_id,
+                status,
+                priority,
+                assigned_to_id,
+                due_date,
+                h_parent_id
+            }
         });
     }
 
@@ -759,17 +789,57 @@ class FreedcampHandler {
         f_started,
         f_billed
     }) {
-        return this.request("POST", "/times", {
+        // The Freedcamp API rejects time entries without assigned_to_id. Time is logged
+        // as the authenticated user unless the caller explicitly logs it for someone else,
+        // so default to this.userId rather than "-1" (everyone). If we have not resolved a
+        // user id yet, pull the session; if it is still unknown, fail loudly instead of
+        // silently assigning the entry to everyone.
+        let assignee = assigned_to_id;
+        if (assignee === null || assignee === undefined || assignee === "") {
+            if (!this.userId) {
+                try {
+                    await this.fetchSession();
+                } catch {
+                    // fall through to the explicit error below
+                }
+            }
+            if (!this.userId) {
+                throw new Error(
+                    "addTime requires assigned_to_id: the authenticated user id is unknown " +
+                        "(session unavailable). Pass assigned_to_id explicitly."
+                );
+            }
+            assignee = String(this.userId);
+        }
+        const res = await this.request("POST", "/times", {
             data: {
                 description,
                 project_id,
-                assigned_to_id,
+                assigned_to_id: assignee,
                 date,
                 minutes_count,
                 f_started,
                 f_billed
             }
         });
+        // The API can return 200 OK yet ignore f_started (the entry comes back with
+        // started_ts null). Surface that as a failure instead of a false success. If we
+        // cannot confirm the timer is running — whether started_ts is null or the entry
+        // could not be extracted from the response at all — we must not claim success.
+        if (Number(f_started) === 1) {
+            const entry = this._extractTimeEntry(res);
+            const started =
+                entry != null && entry.started_ts !== null && entry.started_ts !== undefined;
+            if (!started) {
+                throw new TimeActionNoopError(
+                    "Requested f_started=1 but the timer did not start " +
+                        "(the response entry has started_ts null or could not be read). " +
+                        "This appears to be a Freedcamp API issue, not something the caller can fix.",
+                    { action: "start", entry }
+                );
+            }
+        }
+        return res;
     }
 
     async editTime({ time_id, description, assigned_to_id, date, minutes_count }) {
@@ -783,7 +853,91 @@ class FreedcampHandler {
     }
 
     async timeAction({ time_id, action }) {
-        return this.request("POST", `/times/${time_id}`, { data: { action } });
+        // The Freedcamp API responds 200 OK even when the action was a no-op (e.g.
+        // starting an already-running timer), so we capture the entry's state before
+        // and after the action to detect that. When nothing changed we throw: the
+        // CallTool handler turns thrown errors into isError:true results, so the model
+        // does not mistake a silent no-op for a successful start/stop/bill/unbill.
+        // The action endpoint returns the updated entry (same shape as /times/time_id:GET).
+        const before = await this._fetchTimeEntrySafe(time_id);
+        const res = await this.request("POST", `/times/${time_id}`, { data: { action } });
+        const after = this._extractTimeEntry(res);
+        const warning = this._timeActionWarning(action, before, after);
+        if (warning) {
+            throw new TimeActionNoopError(warning, { time_id, action, entry: after });
+        }
+        return res;
+    }
+
+    async _fetchTimeEntrySafe(time_id) {
+        try {
+            return this._extractTimeEntry(await this.fetchTime({ time_id }));
+        } catch {
+            return null; // best-effort; fall back to post-action-only detection
+        }
+    }
+
+    _extractTimeEntry(res) {
+        const data = res?.data;
+        if (!data || typeof data !== "object") return null;
+        // The entry may be returned directly, under `time`, or as the first array item.
+        const entry = data.time || data.times?.[0] || (Array.isArray(data) ? data[0] : data);
+        return entry && typeof entry === "object" && ("started_ts" in entry || "status" in entry)
+            ? entry
+            : null;
+    }
+
+    _timeActionWarning(action, before, after) {
+        const isStarted = (e) => e != null && e.started_ts !== null && e.started_ts !== undefined;
+        const status = (e) => (e == null ? NaN : Number(e.status));
+
+        switch (action) {
+        case "start":
+            if (before && isStarted(before)) {
+                return "Timer was already running before 'start' (started_ts was already set), " +
+                    "so nothing changed.";
+            }
+            if (!after) {
+                return "Timer start could not be confirmed: the 'start' action response did not " +
+                    "include the time entry, so started_ts cannot be verified. This appears to " +
+                    "be a Freedcamp API issue, not something the caller can fix.";
+            }
+            if (!isStarted(after)) {
+                return "Timer did not start: started_ts is still null after the 'start' action. " +
+                    "The entry may be billed or in a state that cannot be started.";
+            }
+            return null;
+        case "stop":
+            if (before && !isStarted(before)) {
+                return "Timer was not running before 'stop' (started_ts was already null), " +
+                    "so nothing changed.";
+            }
+            if (after && isStarted(after)) {
+                return "Timer did not stop: started_ts is still set after the 'stop' action.";
+            }
+            return null;
+        case "bill":
+            if (before && status(before) === 1) {
+                return "Entry was already billed before 'bill' (status 1), so nothing changed.";
+            }
+            if (after && status(after) !== 1) {
+                return `Entry was not marked billed: status is ${after.status} (expected 1).`;
+            }
+            return null;
+        case "unbill":
+            // unbill is a no-op on any entry that is not currently billed (status !== 1),
+            // not just status 2 (e.g. status 0 not-started is already "unbilled").
+            if (before && status(before) !== 1) {
+                return `Entry was not billed before 'unbill' (status ${before.status}), ` +
+                    "so nothing changed.";
+            }
+            if (after && status(after) !== 2) {
+                return `Entry was not moved back to in-progress: status is ${after.status} (expected 2).`;
+            }
+            return null;
+        default:
+            return null;
+        }
     }
 
     // ============ Wikis ============

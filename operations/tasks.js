@@ -69,6 +69,10 @@ export const AddTaskSchema = z.object({
     ),
     attached_ids: Opt(z.array(z.string())).describe(
         "IDs of previously uploaded files to attach to this task."
+    ),
+    h_parent_id: Opt(z.string()).describe(
+        "ID of the parent task to create this task under (makes it a subtask). The parent " +
+            "must be in the same list (task_group_id) and must not itself be a subtask."
     )
 });
 
@@ -84,6 +88,11 @@ export const UpdateTaskSchema = z.object({
     assigned_to_id: Opt(z.string()).describe("User ID to reassign this task to."),
     due_date: Opt(z.string()).describe(
         "New due date/time, e.g. 'YYYY-MM-DD' or 'YYYY-MM-DD HH:mm:ss'."
+    ),
+    h_parent_id: Opt(z.string()).describe(
+        "ID of the parent task. Set to make this task a subtask of that parent (parent must be " +
+            "in the same task_group_id and not itself a subtask). Pass an empty string to convert " +
+            "a subtask back into a top-level task. Omit to leave the current parent unchanged."
     )
 });
 
