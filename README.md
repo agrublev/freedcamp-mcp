@@ -141,8 +141,8 @@ All tools are prefixed with `fc_`.
 |------|-------------|
 | `fc_fetch_task` | Get a task by ID (`task_id`) |
 | `fc_fetch_tasks` | List tasks (`project_id`, optional: `limit`, `offset`, `filters`) |
-| `fc_add_task` | Create a task (`title`, `project_id`, optional: `description`, `task_group_id`, `priority`, `assigned_to_id`, `due_date`, `status`) |
-| `fc_update_task` | Update a task (`task_id`, optional: `title`, `description`, `status`, `priority`, `assigned_to_id`, `due_date`) |
+| `fc_add_task` | Create a task (`title`, `project_id`, optional: `description`, `task_group_id`, `priority`, `assigned_to_id`, `due_date`, `status`, `h_parent_id` to create a subtask) |
+| `fc_update_task` | Update a task (`task_id`, optional: `title`, `description`, `status`, `priority`, `assigned_to_id`, `due_date`, `h_parent_id`) |
 | `fc_delete_task` | Delete a task (`task_id`) |
 
 **Task filters** (passed inside `filters` object):
@@ -215,10 +215,10 @@ All tools are prefixed with `fc_`.
 |------|-------------|
 | `fc_fetch_times` | List time entries (`project_id`, optional: `limit`, `offset`) |
 | `fc_fetch_time` | Get a time entry (`time_id`) |
-| `fc_add_time` | Log time (`project_id`, `date`, `minutes_count`, optional: `description`, `assigned_to_id`, `f_started`, `f_billed`) |
+| `fc_add_time` | Log time (`project_id`, `date`, `minutes_count`, optional: `description`, `assigned_to_id` (defaults to `-1` = everyone), `f_started` (1/true to start the timer), `f_billed`) |
 | `fc_edit_time` | Edit a time entry (`time_id`, optional fields) |
 | `fc_delete_time` | Delete a time entry (`time_id`) |
-| `fc_time_action` | Perform action on a timer (`time_id`, `action`: `start`/`stop`/`bill`/`unbill`) |
+| `fc_time_action` | Perform action on a timer (`time_id`, `action`: `start`/`stop`/`bill`/`unbill`). Returns a `warning` field if the entry's state did not actually change (e.g. starting an already-running timer). |
 
 ### Wikis
 

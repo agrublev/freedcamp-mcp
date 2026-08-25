@@ -9,18 +9,24 @@ export const FetchTimeSchema = z.object({
     time_id: z.string().describe("ID of the time entry to fetch.")
 });
 
+// Accepts 1/0 or true/false and normalizes to the 1/0 integer the API expects.
+const BoolFlag = z
+    .union([z.boolean(), z.number().int().min(0).max(1)])
+    .transform((v) => (v === true ? 1 : v === false ? 0 : v));
+
 export const AddTimeSchema = z.object({
     description: Opt(z.string()).describe("Description of the work performed."),
     project_id: z.string().describe("ID of the project this time entry belongs to."),
     assigned_to_id: Opt(z.string()).describe(
-        "User ID this time entry is logged for. Defaults to the current user."
+        "User ID this time entry is logged for, or '-1' for everyone. The Freedcamp API " +
+            "requires this field, so it defaults to '-1' (assigned to everyone) when omitted."
     ),
     date: z.string().describe("Date the time was logged, e.g. 'YYYY-MM-DD'."),
     minutes_count: z.number().int().describe("Duration of the time entry, in minutes."),
-    f_started: Opt(z.number().int()).describe(
-        "Set to 1 to create this entry as a running timer (started, not yet stopped)."
+    f_started: Opt(BoolFlag).describe(
+        "Set to 1 (or true) to create this entry as a running timer (started, not yet stopped)."
     ),
-    f_billed: Opt(z.number().int()).describe("Set to 1 to mark this time entry as billed.")
+    f_billed: Opt(BoolFlag).describe("Set to 1 (or true) to mark this time entry as billed.")
 });
 
 export const EditTimeSchema = z.object({
@@ -40,6 +46,6 @@ export const TimeActionSchema = z.object({
     action: z
         .enum(["start", "stop", "bill", "unbill"])
         .describe(
-            "Action to perform: 'start' begins a running timer, 'stop' ends it, 'bill' marks the entry billed, 'unbill' reverts that."
+            "Action to perform: 'start' begins a running timer, 'stop' ends it, 'bill' marks the entry billed, 'unbill' reverts that. The response includes a `warning` field if the entry's state did not actually change (e.g. starting an already-running timer)."
         )
 });

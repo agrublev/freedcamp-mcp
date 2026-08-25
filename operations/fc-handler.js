@@ -288,7 +288,8 @@ class FreedcampHandler {
         due_date,
         status,
         completed_date,
-        attached_ids
+        attached_ids,
+        h_parent_id
     }) {
         return this.request("POST", "/tasks", {
             data: {
@@ -301,7 +302,8 @@ class FreedcampHandler {
                 due_date,
                 status,
                 completed_date,
-                attached_ids
+                attached_ids,
+                h_parent_id
             }
         });
     }
@@ -314,10 +316,20 @@ class FreedcampHandler {
         status = null,
         priority = null,
         assigned_to_id = null,
-        due_date = null
+        due_date = null,
+        h_parent_id = null
     }) {
         return this.request("POST", `/tasks/${task_id}`, {
-            data: { title, description, task_group_id, status, priority, assigned_to_id, due_date }
+            data: {
+                title,
+                description,
+                task_group_id,
+                status,
+                priority,
+                assigned_to_id,
+                due_date,
+                h_parent_id
+            }
         });
     }
 
@@ -758,7 +770,7 @@ class FreedcampHandler {
     async addTime({
         description,
         project_id,
-        assigned_to_id,
+        assigned_to_id = "-1",
         date,
         minutes_count,
         f_started,
@@ -768,6 +780,8 @@ class FreedcampHandler {
             data: {
                 description,
                 project_id,
+                // The Freedcamp API rejects time entries without assigned_to_id, so
+                // default to "-1" (assigned to everyone) when the caller omits it.
                 assigned_to_id,
                 date,
                 minutes_count,
@@ -788,7 +802,53 @@ class FreedcampHandler {
     }
 
     async timeAction({ time_id, action }) {
-        return this.request("POST", `/times/${time_id}`, { data: { action } });
+        // The action endpoint returns the updated time entry (same shape as
+        // /times/time_id:GET). The API responds 200 OK even when the action was a
+        // no-op (e.g. starting an already-running timer), so we inspect the returned
+        // entry and surface a warning when its state doesn't reflect the action.
+        const res = await this.request("POST", `/times/${time_id}`, { data: { action } });
+        const entry = this._extractTimeEntry(res);
+        if (entry) {
+            const warning = this._timeActionWarning(action, entry);
+            if (warning) res.warning = warning;
+        }
+        return res;
+    }
+
+    _extractTimeEntry(res) {
+        const data = res?.data;
+        if (!data || typeof data !== "object") return null;
+        // The entry may be returned directly, under `time`, or as the first array item.
+        const entry = data.time || data.times?.[0] || (Array.isArray(data) ? data[0] : data);
+        return entry && typeof entry === "object" && ("started_ts" in entry || "status" in entry)
+            ? entry
+            : null;
+    }
+
+    _timeActionWarning(action, entry) {
+        const started = entry.started_ts !== null && entry.started_ts !== undefined;
+        const status = Number(entry.status);
+        switch (action) {
+        case "start":
+            return started
+                ? null
+                : "Timer did not start: started_ts is still null after the 'start' action. " +
+                      "The entry may be billed or in a state that cannot be started.";
+        case "stop":
+            return !started
+                ? null
+                : "Timer did not stop: started_ts is still set after the 'stop' action.";
+        case "bill":
+            return status === 1
+                ? null
+                : `Entry was not marked billed: status is ${entry.status} (expected 1).`;
+        case "unbill":
+            return status === 2
+                ? null
+                : `Entry was not moved back to in-progress: status is ${entry.status} (expected 2).`;
+        default:
+            return null;
+        }
     }
 
     // ============ Wikis ============
