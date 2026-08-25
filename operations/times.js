@@ -46,6 +46,6 @@ export const TimeActionSchema = z.object({
     action: z
         .enum(["start", "stop", "bill", "unbill"])
         .describe(
-            "Action to perform: 'start' begins a running timer, 'stop' ends it, 'bill' marks the entry billed, 'unbill' reverts that. The response includes a `warning` field if the entry's state did not actually change (e.g. starting an already-running timer)."
+            "Action to perform: 'start' begins a running timer, 'stop' ends it, 'bill' marks the entry billed, 'unbill' reverts that. The entry's state is compared before and after the action, and the response includes a `warning` field if nothing actually changed (e.g. starting an already-running timer)."
         )
 });

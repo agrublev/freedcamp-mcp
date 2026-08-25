@@ -802,17 +802,24 @@ class FreedcampHandler {
     }
 
     async timeAction({ time_id, action }) {
-        // The action endpoint returns the updated time entry (same shape as
-        // /times/time_id:GET). The API responds 200 OK even when the action was a
-        // no-op (e.g. starting an already-running timer), so we inspect the returned
-        // entry and surface a warning when its state doesn't reflect the action.
+        // The Freedcamp API responds 200 OK even when the action was a no-op (e.g.
+        // starting an already-running timer), so we capture the entry's state before
+        // and after the action and surface a warning when nothing actually changed.
+        // The action endpoint returns the updated entry (same shape as /times/time_id:GET).
+        const before = await this._fetchTimeEntrySafe(time_id);
         const res = await this.request("POST", `/times/${time_id}`, { data: { action } });
-        const entry = this._extractTimeEntry(res);
-        if (entry) {
-            const warning = this._timeActionWarning(action, entry);
-            if (warning) res.warning = warning;
-        }
+        const after = this._extractTimeEntry(res);
+        const warning = this._timeActionWarning(action, before, after);
+        if (warning) res.warning = warning;
         return res;
+    }
+
+    async _fetchTimeEntrySafe(time_id) {
+        try {
+            return this._extractTimeEntry(await this.fetchTime({ time_id }));
+        } catch {
+            return null; // best-effort; fall back to post-action-only detection
+        }
     }
 
     _extractTimeEntry(res) {
@@ -825,27 +832,46 @@ class FreedcampHandler {
             : null;
     }
 
-    _timeActionWarning(action, entry) {
-        const started = entry.started_ts !== null && entry.started_ts !== undefined;
-        const status = Number(entry.status);
+    _timeActionWarning(action, before, after) {
+        const isStarted = (e) => e != null && e.started_ts !== null && e.started_ts !== undefined;
+        const status = (e) => (e == null ? NaN : Number(e.status));
+
         switch (action) {
         case "start":
-            return started
-                ? null
-                : "Timer did not start: started_ts is still null after the 'start' action. " +
-                      "The entry may be billed or in a state that cannot be started.";
+            if (before && isStarted(before)) {
+                return "Timer was already running before 'start' (started_ts was already set), " +
+                    "so nothing changed.";
+            }
+            if (after && !isStarted(after)) {
+                return "Timer did not start: started_ts is still null after the 'start' action. " +
+                    "The entry may be billed or in a state that cannot be started.";
+            }
+            return null;
         case "stop":
-            return !started
-                ? null
-                : "Timer did not stop: started_ts is still set after the 'stop' action.";
+            if (before && !isStarted(before)) {
+                return "Timer was not running before 'stop' (started_ts was already null), " +
+                    "so nothing changed.";
+            }
+            if (after && isStarted(after)) {
+                return "Timer did not stop: started_ts is still set after the 'stop' action.";
+            }
+            return null;
         case "bill":
-            return status === 1
-                ? null
-                : `Entry was not marked billed: status is ${entry.status} (expected 1).`;
+            if (before && status(before) === 1) {
+                return "Entry was already billed before 'bill' (status 1), so nothing changed.";
+            }
+            if (after && status(after) !== 1) {
+                return `Entry was not marked billed: status is ${after.status} (expected 1).`;
+            }
+            return null;
         case "unbill":
-            return status === 2
-                ? null
-                : `Entry was not moved back to in-progress: status is ${entry.status} (expected 2).`;
+            if (before && status(before) === 2) {
+                return "Entry was already in progress before 'unbill' (status 2), so nothing changed.";
+            }
+            if (after && status(after) !== 2) {
+                return `Entry was not moved back to in-progress: status is ${after.status} (expected 2).`;
+            }
+            return null;
         default:
             return null;
         }
