@@ -897,7 +897,12 @@ class FreedcampHandler {
                 return "Timer was already running before 'start' (started_ts was already set), " +
                     "so nothing changed.";
             }
-            if (after && !isStarted(after)) {
+            if (!after) {
+                return "Timer start could not be confirmed: the 'start' action response did not " +
+                    "include the time entry, so started_ts cannot be verified. This appears to " +
+                    "be a Freedcamp API issue, not something the caller can fix.";
+            }
+            if (!isStarted(after)) {
                 return "Timer did not start: started_ts is still null after the 'start' action. " +
                     "The entry may be billed or in a state that cannot be started.";
             }
