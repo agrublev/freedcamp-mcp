@@ -215,10 +215,10 @@ All tools are prefixed with `fc_`.
 |------|-------------|
 | `fc_fetch_times` | List time entries (`project_id`, optional: `limit`, `offset`) |
 | `fc_fetch_time` | Get a time entry (`time_id`) |
-| `fc_add_time` | Log time (`project_id`, `date`, `minutes_count`, optional: `description`, `assigned_to_id` (defaults to `-1` = everyone), `f_started` (1/true to start the timer), `f_billed`) |
+| `fc_add_time` | Log time (`project_id`, `date`, `minutes_count`, optional: `description`, `assigned_to_id` (defaults to the authenticated user; fails if it cannot be determined), `f_started` (1/true to start the timer), `f_billed`). If `f_started` is set but the entry comes back with `started_ts` null, the call fails with `isError` rather than a false success. |
 | `fc_edit_time` | Edit a time entry (`time_id`, optional fields) |
 | `fc_delete_time` | Delete a time entry (`time_id`) |
-| `fc_time_action` | Perform action on a timer (`time_id`, `action`: `start`/`stop`/`bill`/`unbill`). Returns a `warning` field if the entry's state did not actually change (e.g. starting an already-running timer). |
+| `fc_time_action` | Perform action on a timer (`time_id`, `action`: `start`/`stop`/`bill`/`unbill`). The entry's state is compared before and after; if nothing actually changed (e.g. starting an already-running timer), the call fails with `isError: true` instead of a false success. |
 
 ### Wikis
 

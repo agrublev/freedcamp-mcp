@@ -4,7 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import FreedcampHandler from "./operations/fc-handler.js";
+import FreedcampHandler, { TimeActionNoopError } from "./operations/fc-handler.js";
 import { VERSION } from "./common/version.js";
 import { ApiResponseSchema, TaskSchema, TaskListResponseSchema } from "./common/types.js";
 
@@ -801,10 +801,16 @@ function buildServer(fc) {
                           .map((e) => `${e.path.join(".") || "(root)"}: ${e.message}`)
                           .join("; ")}`
                     : err.message || String(err);
-            return {
+            const result = {
                 isError: true,
                 content: [{ type: "text", text: message }]
             };
+            // A silent no-op (e.g. timer did not actually start) is a failure, not a
+            // success — surface the entry state so the model can explain what happened.
+            if (err instanceof TimeActionNoopError && err.details) {
+                result.structuredContent = { error: message, ...err.details };
+            }
+            return result;
         }
     });
 

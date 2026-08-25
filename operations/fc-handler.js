@@ -12,6 +12,19 @@ import { filterMap, statuses } from "./constants.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/**
+ * Thrown by timeAction when the Freedcamp API returned 200 OK but the entry's
+ * state did not actually change (a silent no-op). The CallTool handler surfaces
+ * this as an isError:true result so the failure is not mistaken for success.
+ */
+export class TimeActionNoopError extends Error {
+    constructor(message, details = {}) {
+        super(message);
+        this.name = "TimeActionNoopError";
+        this.details = details;
+    }
+}
+
 class FreedcampHandler {
     constructor(
         apiKey,
@@ -770,25 +783,61 @@ class FreedcampHandler {
     async addTime({
         description,
         project_id,
-        assigned_to_id = "-1",
+        assigned_to_id,
         date,
         minutes_count,
         f_started,
         f_billed
     }) {
-        return this.request("POST", "/times", {
+        // The Freedcamp API rejects time entries without assigned_to_id. Time is logged
+        // as the authenticated user unless the caller explicitly logs it for someone else,
+        // so default to this.userId rather than "-1" (everyone). If we have not resolved a
+        // user id yet, pull the session; if it is still unknown, fail loudly instead of
+        // silently assigning the entry to everyone.
+        let assignee = assigned_to_id;
+        if (assignee === null || assignee === undefined || assignee === "") {
+            if (!this.userId) {
+                try {
+                    await this.fetchSession();
+                } catch {
+                    // fall through to the explicit error below
+                }
+            }
+            if (!this.userId) {
+                throw new Error(
+                    "addTime requires assigned_to_id: the authenticated user id is unknown " +
+                        "(session unavailable). Pass assigned_to_id explicitly."
+                );
+            }
+            assignee = String(this.userId);
+        }
+        const res = await this.request("POST", "/times", {
             data: {
                 description,
                 project_id,
-                // The Freedcamp API rejects time entries without assigned_to_id, so
-                // default to "-1" (assigned to everyone) when the caller omits it.
-                assigned_to_id,
+                assigned_to_id: assignee,
                 date,
                 minutes_count,
                 f_started,
                 f_billed
             }
         });
+        // The API can return 200 OK yet ignore f_started (the entry comes back with
+        // started_ts null). Surface that as a failure instead of a false success.
+        if (Number(f_started) === 1) {
+            const entry = this._extractTimeEntry(res);
+            const started =
+                entry != null && entry.started_ts !== null && entry.started_ts !== undefined;
+            if (entry && !started) {
+                throw new TimeActionNoopError(
+                    "Requested f_started=1 but the new entry's started_ts is still null: " +
+                        "the timer did not start. This appears to be a Freedcamp API issue, " +
+                        "not something the caller can fix.",
+                    { action: "start", entry }
+                );
+            }
+        }
+        return res;
     }
 
     async editTime({ time_id, description, assigned_to_id, date, minutes_count }) {
@@ -804,13 +853,17 @@ class FreedcampHandler {
     async timeAction({ time_id, action }) {
         // The Freedcamp API responds 200 OK even when the action was a no-op (e.g.
         // starting an already-running timer), so we capture the entry's state before
-        // and after the action and surface a warning when nothing actually changed.
+        // and after the action to detect that. When nothing changed we throw: the
+        // CallTool handler turns thrown errors into isError:true results, so the model
+        // does not mistake a silent no-op for a successful start/stop/bill/unbill.
         // The action endpoint returns the updated entry (same shape as /times/time_id:GET).
         const before = await this._fetchTimeEntrySafe(time_id);
         const res = await this.request("POST", `/times/${time_id}`, { data: { action } });
         const after = this._extractTimeEntry(res);
         const warning = this._timeActionWarning(action, before, after);
-        if (warning) res.warning = warning;
+        if (warning) {
+            throw new TimeActionNoopError(warning, { time_id, action, entry: after });
+        }
         return res;
     }
 

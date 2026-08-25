@@ -18,8 +18,9 @@ export const AddTimeSchema = z.object({
     description: Opt(z.string()).describe("Description of the work performed."),
     project_id: z.string().describe("ID of the project this time entry belongs to."),
     assigned_to_id: Opt(z.string()).describe(
-        "User ID this time entry is logged for, or '-1' for everyone. The Freedcamp API " +
-            "requires this field, so it defaults to '-1' (assigned to everyone) when omitted."
+        "User ID this time entry is logged for. The Freedcamp API requires this field; when " +
+            "omitted it defaults to the authenticated user. Pass a different user ID only to log " +
+            "time for someone else."
     ),
     date: z.string().describe("Date the time was logged, e.g. 'YYYY-MM-DD'."),
     minutes_count: z.number().int().describe("Duration of the time entry, in minutes."),
@@ -46,6 +47,6 @@ export const TimeActionSchema = z.object({
     action: z
         .enum(["start", "stop", "bill", "unbill"])
         .describe(
-            "Action to perform: 'start' begins a running timer, 'stop' ends it, 'bill' marks the entry billed, 'unbill' reverts that. The entry's state is compared before and after the action, and the response includes a `warning` field if nothing actually changed (e.g. starting an already-running timer)."
+            "Action to perform: 'start' begins a running timer, 'stop' ends it, 'bill' marks the entry billed, 'unbill' reverts that. The entry's state is compared before and after the action; if nothing actually changed (e.g. starting an already-running timer), the tool call fails with isError:true rather than reporting a false success."
         )
 });
