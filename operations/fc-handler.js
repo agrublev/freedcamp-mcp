@@ -823,16 +823,18 @@ class FreedcampHandler {
             }
         });
         // The API can return 200 OK yet ignore f_started (the entry comes back with
-        // started_ts null). Surface that as a failure instead of a false success.
+        // started_ts null). Surface that as a failure instead of a false success. If we
+        // cannot confirm the timer is running — whether started_ts is null or the entry
+        // could not be extracted from the response at all — we must not claim success.
         if (Number(f_started) === 1) {
             const entry = this._extractTimeEntry(res);
             const started =
                 entry != null && entry.started_ts !== null && entry.started_ts !== undefined;
-            if (entry && !started) {
+            if (!started) {
                 throw new TimeActionNoopError(
-                    "Requested f_started=1 but the new entry's started_ts is still null: " +
-                        "the timer did not start. This appears to be a Freedcamp API issue, " +
-                        "not something the caller can fix.",
+                    "Requested f_started=1 but the timer did not start " +
+                        "(the response entry has started_ts null or could not be read). " +
+                        "This appears to be a Freedcamp API issue, not something the caller can fix.",
                     { action: "start", entry }
                 );
             }
