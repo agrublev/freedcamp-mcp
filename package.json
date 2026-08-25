@@ -12,6 +12,8 @@
   },
   "files": [
     "index.js",
+    "http.js",
+    "oauth.js",
     "common/",
     "operations/"
   ],
@@ -31,6 +33,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "axios": "^1.19.0",
+    "express": "^5.2.1",
     "moment": "^2.30.1",
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.25.2"
