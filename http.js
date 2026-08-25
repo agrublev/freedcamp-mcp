@@ -11,12 +11,14 @@
 // created from their credentials.
 
 import express from "express";
+import crypto from "crypto";
 import {
     mcpAuthRouter,
     getOAuthProtectedResourceMetadataUrl
 } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { FreedcampOAuthProvider } from "./oauth.js";
 
 export async function startHttpServer({ buildServer, handlerForToken, dropHandlerForToken }) {
@@ -69,38 +71,86 @@ export async function startHttpServer({ buildServer, handlerForToken, dropHandle
         resourceMetadataUrl
     });
 
-    // One MCP session per bearer token: transports and servers keyed by token.
-    const sessions = new Map(); // token → { transport, server }
+    // Active MCP sessions: sessionId → { transport, server, token }
+    const sessions = new Map();
 
-    app.all("/mcp", bearerAuth, async (req, res) => {
-        // requireBearerAuth already guarantees a verified token on req.auth.
+    // Map token → Set<sessionId> to track all sessions for a user
+    const tokenSessions = new Map();
+
+    const getHandler = async (token, auth) => {
+        const fc = handlerForToken(token);
+        if (!fc.apiKey) {
+            fc.apiKey = auth.extra?.apiKey;
+            fc.apiSecret = auth.extra?.apiSecret;
+            fc.sessionToken = null;
+            fc.userId = null;
+            await fc.initialize();
+        }
+        return fc;
+    };
+
+    app.post("/mcp", bearerAuth, async (req, res) => {
         const token = req.auth.token;
+        const sessionId = req.headers["mcp-session-id"];
         try {
-            let session = sessions.get(token);
-            if (!session) {
-                const auth = req.auth;
-                const fc = handlerForToken(token);
-                // First request for this token: wire credentials from the token
-                // into a dedicated Freedcamp handler and build an MCP server.
-                fc.apiKey = auth.extra?.apiKey;
-                fc.apiSecret = auth.extra?.apiSecret;
-                fc.sessionToken = null;
-                fc.userId = null;
-                await fc.initialize();
-
+            let session;
+            if (sessionId && sessions.has(sessionId)) {
+                session = sessions.get(sessionId);
+                // Verify that this session belongs to the authenticated token
+                if (session.token !== token) {
+                    res.status(403).json({
+                        jsonrpc: "2.0",
+                        error: {
+                            code: -32000,
+                            message: "Forbidden: Session belongs to a different user"
+                        },
+                        id: null
+                    });
+                    return;
+                }
+            } else if (!sessionId && isInitializeRequest(req.body)) {
+                // New initialization request
+                const fc = await getHandler(token, req.auth);
                 const transport = new StreamableHTTPServerTransport({
-                    sessionIdGenerator: () => token.slice(0, 24),
+                    sessionIdGenerator: () => crypto.randomUUID(),
                     enableJsonResponse: true,
-                    onsessionclosed: () => {
-                        sessions.delete(token);
-                        dropHandlerForToken(token); // free the per-user handler too
+                    onsessioninitialized: (sid) => {
+                        sessions.set(sid, { transport, server, token });
+                        let sids = tokenSessions.get(token);
+                        if (!sids) {
+                            sids = new Set();
+                            tokenSessions.set(token, sids);
+                        }
+                        sids.add(sid);
+                    },
+                    onsessionclosed: (sid) => {
+                        sessions.delete(sid);
+                        const sids = tokenSessions.get(token);
+                        if (sids) {
+                            sids.delete(sid);
+                            if (sids.size === 0) {
+                                tokenSessions.delete(token);
+                                dropHandlerForToken(token);
+                            }
+                        }
                     }
                 });
                 const server = buildServer(fc);
                 await server.connect(transport);
-                session = { transport, server };
-                sessions.set(token, session);
+                await transport.handleRequest(req, res, req.body);
+                return;
+            } else {
+                res.status(400).json({
+                    jsonrpc: "2.0",
+                    error: {
+                        code: -32000,
+                        message: "Bad Request: No valid session ID provided or session expired"
+                    },
+                    id: null
+                });
+                return;
             }
+
             await session.transport.handleRequest(req, res, req.body);
         } catch (error) {
             console.error("[http] MCP request failed:", error);
@@ -108,6 +158,28 @@ export async function startHttpServer({ buildServer, handlerForToken, dropHandle
                 res.status(500).json({ error: "internal_error", message: error.message });
             }
         }
+    });
+
+    app.get("/mcp", bearerAuth, async (req, res) => {
+        const token = req.auth.token;
+        const sessionId = req.headers["mcp-session-id"];
+        const session = sessionId ? sessions.get(sessionId) : null;
+        if (!session || session.token !== token) {
+            res.status(400).send("Invalid or missing session ID");
+            return;
+        }
+        await session.transport.handleRequest(req, res);
+    });
+
+    app.delete("/mcp", bearerAuth, async (req, res) => {
+        const token = req.auth.token;
+        const sessionId = req.headers["mcp-session-id"];
+        const session = sessionId ? sessions.get(sessionId) : null;
+        if (!session || session.token !== token) {
+            res.status(400).send("Invalid or missing session ID");
+            return;
+        }
+        await session.transport.handleRequest(req, res);
     });
 
     app.get("/healthz", (_req, res) => res.json({ ok: true }));
