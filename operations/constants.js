@@ -97,6 +97,10 @@ export const filterMap = {
 	due_date_to: "due_date[to]",
 	created_date_from: "created_date[from]",
 	created_date_to: "created_date[to]",
+	// GET /tasks documents lists_status (plural) — without this mapping the
+	// list_status filter was sent verbatim and silently ignored by the API.
+	list_status: "lists_status",
+	order_priority: "order[priority]",
 };
 
 export const status_ids = {

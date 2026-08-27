@@ -295,28 +295,42 @@ class FreedcampHandler {
         title,
         description,
         project_id,
+        list_id,
         task_group_id,
         priority,
         assigned_to_id,
+        start_date,
+        r_rule,
         due_date,
         status,
         completed_date,
         attached_ids,
-        h_parent_id
+        h_parent_id,
+        cf_tpl_id,
+        custom_fields
     }) {
+        // The API's documented field is list_id (api_docs/swagger.json →
+        // TaskCreate). task_group_id is a legacy alias kept working for
+        // compatibility with older API flavors, so send both when set.
+        const resolvedListId = list_id ?? task_group_id ?? null;
         return this.request("POST", "/tasks", {
             data: {
                 title,
                 description,
                 project_id,
-                task_group_id,
+                list_id: resolvedListId,
+                task_group_id: resolvedListId,
                 priority,
                 assigned_to_id,
+                start_date,
+                r_rule,
                 due_date,
                 status,
                 completed_date,
                 attached_ids,
-                h_parent_id
+                h_parent_id,
+                cf_tpl_id,
+                custom_fields
             }
         });
     }
@@ -325,23 +339,74 @@ class FreedcampHandler {
         task_id,
         title = null,
         description = null,
+        list_id = null,
         task_group_id = null,
         status = null,
         priority = null,
         assigned_to_id = null,
+        start_date = null,
+        r_rule = null,
         due_date = null,
-        h_parent_id = null
+        attached_ids = null,
+        h_parent_id = null,
+        cf_tpl_id = null,
+        custom_fields = null
     }) {
+        const resolvedListId = list_id ?? task_group_id ?? null;
         return this.request("POST", `/tasks/${task_id}`, {
             data: {
                 title,
                 description,
-                task_group_id,
+                list_id: resolvedListId,
+                task_group_id: resolvedListId,
                 status,
                 priority,
                 assigned_to_id,
+                start_date,
+                r_rule,
                 due_date,
-                h_parent_id
+                attached_ids,
+                h_parent_id,
+                cf_tpl_id,
+                custom_fields
+            }
+        });
+    }
+
+    async batchEditTasks({
+        batch_ids,
+        title = null,
+        description = null,
+        status = null,
+        priority = null,
+        assigned_to_id = null,
+        assigned_ids = null,
+        start_date = null,
+        due_date = null,
+        ms_id = null,
+        h_parent_id = null,
+        tags = null,
+        custom_fields = null,
+        follower_ids = null,
+        followers_operation = null
+    }) {
+        return this.request("POST", "/tasks/batch", {
+            data: {
+                batch_ids,
+                title,
+                description,
+                status_id: status,
+                priority,
+                assigned_to_id,
+                assigned_ids,
+                start_date,
+                due_date,
+                ms_id,
+                h_parent_id,
+                tags,
+                custom_fields,
+                follower_ids,
+                followers_operation
             }
         });
     }
@@ -1127,6 +1192,18 @@ class FreedcampHandler {
 
     async fetchCfTemplates({ module_id = 2 } = {}) {
         return this.request("GET", "/cf_templates", { params: { module_id } });
+    }
+
+    async addCfTemplate({ title, module_id, owner_id, fields }) {
+        return this.request("POST", "/cf_templates", {
+            data: { title, module_id, owner_id, fields }
+        });
+    }
+
+    async editCfTemplate({ cft_id, title, module_id, owner_id, fields, deleted_field_ids, f_archived }) {
+        return this.request("POST", `/cf_templates/${cft_id}`, {
+            data: { title, module_id, owner_id, fields, deleted_field_ids, f_archived }
+        });
     }
 
     async fetchUsers() {

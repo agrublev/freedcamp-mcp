@@ -79,6 +79,36 @@ function inferAnnotations(name) {
     return { readOnlyHint, destructiveHint, idempotentHint, openWorldHint: true };
 }
 
+// zod-to-json-schema merges primitive unions into JSON Schema `type` arrays,
+// e.g. z.union([z.string(), z.number()]) → { type: ["string", "number"] } and
+// z.string().nullable() → { type: ["string", "null"] }. That is legal JSON
+// Schema, but several MCP clients read `type` as a single string and either
+// reject the tool or drop the constraint, so rewrite every type array into
+// single-type anyOf branches: { anyOf: [{ type: "string" }, { type: "number" }] }.
+// Sibling keywords (description, format, …) stay on the anyOf wrapper so they
+// apply to every branch.
+function splitTypeArrays(node) {
+    if (Array.isArray(node)) return node.map(splitTypeArrays);
+    if (!node || typeof node !== "object") return node;
+    const { type, ...rest } = node;
+    if (!Array.isArray(type)) {
+        const out = {};
+        for (const [k, v] of Object.entries(node)) out[k] = splitTypeArrays(v);
+        return out;
+    }
+    const out = { anyOf: type.map((t) => ({ type: t })) };
+    for (const [k, v] of Object.entries(rest)) out[k] = splitTypeArrays(v);
+    return out;
+}
+
+function toolInputSchema(schema) {
+    return splitTypeArrays(zodToJsonSchema(schema));
+}
+
+function toolOutputSchema(schema) {
+    return splitTypeArrays(zodToJsonSchema(schema || ApiResponseSchema));
+}
+
 // ── Tool registry ──────────────────────────────────────────────────────────
 // `outputSchema` defaults to the generic Freedcamp API response envelope
 // (ApiResponseSchema) since nearly every handler method returns it verbatim;
@@ -101,13 +131,28 @@ const tools = [
     },
     {
         name: "fc_add_task",
-        description: "Create a new Freedcamp task",
+        description:
+            "Create a new Freedcamp task. Supports scheduling (start_date, due_date), " +
+            "recurrence (r_rule), assignment, file attachments, subtasks (h_parent_id), " +
+            "and custom field values.",
         schema: tasks.AddTaskSchema
     },
     {
         name: "fc_update_task",
-        description: "Update an existing Freedcamp task",
+        description:
+            "Update an existing Freedcamp task: title, description, status, priority, " +
+            "start/due dates, recurrence (r_rule), assignment, list, attachments, " +
+            "subtask parent, and custom field values.",
         schema: tasks.UpdateTaskSchema
+    },
+    {
+        name: "fc_batch_edit_tasks",
+        description:
+            "Edit up to 500 Freedcamp tasks in a single request (batch edit). Only the " +
+            "fields you provide are changed; every listed task receives the same values. " +
+            "Set the same status, priority, assignees, dates, tags, custom fields, " +
+            "milestone, or parent task across many tasks at once.",
+        schema: tasks.BatchEditTasksSchema
     },
     {
         name: "fc_delete_task",
@@ -422,6 +467,19 @@ const tools = [
         schema: misc.FetchCfTemplatesSchema
     },
     {
+        name: "fc_add_cf_template",
+        description:
+            "Create a custom field template (set of custom fields) for Tasks, Issue Tracker, or CRM.",
+        schema: misc.AddCfTemplateSchema
+    },
+    {
+        name: "fc_edit_cf_template",
+        description:
+            "Edit an existing custom field template: rename it, replace its fields, remove " +
+            "fields, or archive it.",
+        schema: misc.EditCfTemplateSchema
+    },
+    {
         name: "fc_fetch_linked_items",
         description: "Get linked items for an item",
         schema: misc.FetchLinkedItemsSchema
@@ -517,8 +575,8 @@ function buildServer(fc) {
         tools: tools.map(({ name, description, schema, outputSchema }) => ({
             name,
             description,
-            inputSchema: zodToJsonSchema(schema),
-            outputSchema: zodToJsonSchema(outputSchema || ApiResponseSchema),
+            inputSchema: toolInputSchema(schema),
+            outputSchema: toolOutputSchema(outputSchema),
             annotations: inferAnnotations(name)
         }))
     }));
@@ -542,6 +600,8 @@ function buildServer(fc) {
                 return ok(await fc.addTask(tasks.AddTaskSchema.parse(args)));
             case "fc_update_task":
                 return ok(await fc.updateTask(tasks.UpdateTaskSchema.parse(args)));
+            case "fc_batch_edit_tasks":
+                return ok(await fc.batchEditTasks(tasks.BatchEditTasksSchema.parse(args)));
             case "fc_delete_task":
                 return ok(await fc.deleteTask(tasks.DeleteTaskSchema.parse(args)));
 
@@ -744,6 +804,10 @@ function buildServer(fc) {
             // Misc
             case "fc_fetch_cf_templates":
                 return ok(await fc.fetchCfTemplates(misc.FetchCfTemplatesSchema.parse(args)));
+            case "fc_add_cf_template":
+                return ok(await fc.addCfTemplate(misc.AddCfTemplateSchema.parse(args)));
+            case "fc_edit_cf_template":
+                return ok(await fc.editCfTemplate(misc.EditCfTemplateSchema.parse(args)));
             case "fc_fetch_linked_items":
                 return ok(await fc.fetchLinkedItems(misc.FetchLinkedItemsSchema.parse(args)));
             case "fc_add_linked_items":

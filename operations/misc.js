@@ -32,6 +32,52 @@ export const FetchCfTemplatesSchema = z.object({
     )
 });
 
+// One custom field definition as accepted by the custom-field templates API
+// (api_docs/swagger.json → CfTemplateCreate.fields[]).
+const CfTemplateFieldInput = z.object({
+    title: Opt(z.string()).describe("Label shown for this custom field."),
+    type: z.enum(["text", "textarea", "date", "number", "currency", "dd", "checkbox", "separator"]).describe(
+        "Field type: text, textarea, date, number, currency, dd (dropdown), checkbox, or separator."
+    ),
+    f_required: Opt(z.boolean()).describe("Whether this field must be filled in."),
+    cf_order: Opt(z.number().int()).describe("Display order of this field within the template."),
+    currency_code: Opt(z.string()).describe(
+        "ISO currency code, required when type is 'currency' (e.g. 'USD')."
+    ),
+    dd_options: Opt(
+        z.array(
+            z.object({
+                option_id: Opt(z.number().int()).describe("Stable id of this dropdown option."),
+                title: Opt(z.string()).describe("Label of this dropdown option."),
+                f_default: Opt(z.boolean()).describe("Whether this option is the default choice.")
+            })
+        )
+    ).describe("Choices for a dropdown ('dd') field, in display order.")
+});
+
+export const AddCfTemplateSchema = z.object({
+    title: z.string().describe("Name of the custom field template."),
+    module_id: z.number().int().describe(
+        "Freedcamp app ID the template applies to: 2=Tasks, 13=Issue Tracker, 37=CRM."
+    ),
+    owner_id: Opt(z.string()).describe("Owner user ID for the template; defaults to the current user."),
+    fields: z.array(CfTemplateFieldInput).describe("Custom fields to create in this template.")
+});
+
+export const EditCfTemplateSchema = z.object({
+    cft_id: z.string().describe("ID of the custom field template to edit."),
+    title: z.string().describe("New name of the custom field template."),
+    module_id: z.number().int().describe(
+        "Freedcamp app ID the template applies to: 2=Tasks, 13=Issue Tracker, 37=CRM."
+    ),
+    owner_id: Opt(z.string()).describe("Owner user ID for the template."),
+    fields: z.array(CfTemplateFieldInput).describe("Full replacement set of custom fields for this template."),
+    deleted_field_ids: Opt(z.array(z.number().int())).describe(
+        "IDs of existing fields to remove from the template."
+    ),
+    f_archived: Opt(z.boolean()).describe("Whether the template is archived.")
+});
+
 export const FetchCalendarItemsSchema = z.object({
     project_id: Opt(z.string()).describe(
         "Restrict results to this project ID. Omit to fetch across all accessible projects."

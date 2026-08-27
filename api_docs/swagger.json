@@ -1,0 +1,7385 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Freedcamp Public API",
+    "version": "1.0.0",
+    "description": "OpenAPI specification for the Freedcamp public REST API, derived from the\nofficial API wiki.\n\n## Authentication\n\nThree credential styles are supported (see `securitySchemes`):\n\n- **Not-secured API key** — pass `api_key` as a query or POST parameter.\n  Expires one week after creation.\n- **Secured API key** — pass `api_key` together with `timestamp`\n  (request UNIX timestamp) and `hash`, where:\n\n  ```\n  hash = hash_hmac('sha1', api_key . timestamp, api_secret)\n  ```\n\n  When using a secured key, add the reusable `timestamp` and `hash`\n  query parameters to the request.\n- **Header key** — pass the key via the `X-API-KEY` header instead of in\n  the URL or body. (Used by the Postman collection.)\n\nA session token may also be passed via the `X-API-TOKEN` header.\n\n## Requests\n\nNon-GET requests pass their (non-auth) parameters as a raw JSON body with\n`Content-Type: application/json`. A legacy form-data style (a `data` field\nholding a JSON-encoded string) is also still supported. \"Update\" (EDIT)\nrequests use POST and include the id of the modified item in the path.\n\n## Responses\n\nEvery response is a JSON object with `http_code`, `msg`, `error_id`,\nan optional `maintenance` block, and a request-specific `data` object.\nValidation errors are returned under `data.errors`.\n\n## Notes / wiki ambiguities preserved\n\n- `/validations` GET: the wiki documents the path as `/notifications/email`\n  while the section header is `/validations`; modelled here as\n  `/validations/email`.\n- `/lists` EDIT/DELETE paths are modelled as `/lists/{app_id}/{list_id}`.\n- Endpoints marked \"not allowed publicly\" / \"not supported now\" in the wiki\n  are included and flagged with `deprecated: true` and a description note.\n\n\nThis combined specification merges the wiki-derived reference (authoritative schemas, parameters, and descriptions) with concrete request examples taken from the official Postman collection.",
+    "contact": {
+      "name": "Freedcamp Support",
+      "email": "help@freedcamp.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://freedcamp.com/api/v1",
+      "description": "Production"
+    },
+    {
+      "url": "https://test.freedcamp.com/api/v1",
+      "description": "Test"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyQuery": []
+    },
+    {
+      "ApiKeyHeader": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Sessions"
+    },
+    {
+      "name": "Users"
+    },
+    {
+      "name": "Groups"
+    },
+    {
+      "name": "Group memberships"
+    },
+    {
+      "name": "Projects"
+    },
+    {
+      "name": "Project memberships"
+    },
+    {
+      "name": "Global teams"
+    },
+    {
+      "name": "Team memberships"
+    },
+    {
+      "name": "Invitations"
+    },
+    {
+      "name": "Installs"
+    },
+    {
+      "name": "Overviews"
+    },
+    {
+      "name": "Tasks"
+    },
+    {
+      "name": "Milestones"
+    },
+    {
+      "name": "Issues"
+    },
+    {
+      "name": "Times"
+    },
+    {
+      "name": "Events"
+    },
+    {
+      "name": "Calendar"
+    },
+    {
+      "name": "Discussions"
+    },
+    {
+      "name": "Wikis"
+    },
+    {
+      "name": "Comments"
+    },
+    {
+      "name": "Files"
+    },
+    {
+      "name": "Avatars"
+    },
+    {
+      "name": "Lists"
+    },
+    {
+      "name": "Linked items"
+    },
+    {
+      "name": "Custom field templates"
+    },
+    {
+      "name": "Favorite projects"
+    },
+    {
+      "name": "Notifications"
+    },
+    {
+      "name": "Validations"
+    },
+    {
+      "name": "Timezones"
+    },
+    {
+      "name": "Backups"
+    },
+    {
+      "name": "Account"
+    },
+    {
+      "name": "Passwords"
+    },
+    {
+      "name": "CRM"
+    }
+  ],
+  "paths": {
+    "/sessions/current": {
+      "get": {
+        "tags": [
+          "Sessions"
+        ],
+        "summary": "Get current session",
+        "description": "Returns current session info (same data as the ADD request, minus the token).",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SessionResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Sessions"
+        ],
+        "summary": "Start a session (NOT supported now)",
+        "deprecated": true,
+        "description": "WARNING: not supported now. Returns a session token plus initial-screen\ninfo for valid credentials. `X-API-TOKEN` should be empty.\n",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/SessionCreate"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SessionResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Sessions"
+        ],
+        "summary": "Close current session (NOT supported now)",
+        "deprecated": true,
+        "description": "WARNING: not supported now. Closes the current session and invalidates the token.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/groups": {
+      "get": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "List groups",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/GroupsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "Create a group",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "admins": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "User ids to set as group admins."
+                  }
+                }
+              },
+              "example": {
+                "name": "Group by API",
+                "description": "by api"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/GroupsResponse"
+          }
+        }
+      }
+    },
+    "/groups/{group_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/GroupIdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "Get a group",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/GroupsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "Edit a group",
+        "description": "Pass only the changed parameters.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "admins": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Updatable only by the group owner."
+                  },
+                  "f_active": {
+                    "type": "boolean",
+                    "description": "If present, archives (false) or unarchives (true) all projects in the group instead of editing group fields."
+                  }
+                }
+              },
+              "example": {
+                "name": "Group by API edited",
+                "description": "by api"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/GroupsResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "Delete a group",
+        "description": "Only the group owner can delete a group.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/group_memberships/{group_id}": {
+      "post": {
+        "tags": [
+          "Group memberships"
+        ],
+        "summary": "Add users or global teams to a group",
+        "description": "Requires manage permission on the group. Provide either `users` or `invited_global_teams`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupIdPath"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "users": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/MembershipUserInput"
+                        }
+                      },
+                      "custom_message": {
+                        "type": "string",
+                        "description": "Optional invitation message (paid plans only)."
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "invited_global_teams": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "id"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "Team id."
+                            },
+                            "context_role_id": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "users": [
+                  {
+                    "email": "example_email",
+                    "context_role_id": 0
+                  }
+                ],
+                "invited_global_teams": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/GroupsResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Group memberships"
+        ],
+        "summary": "Leave a group",
+        "description": "Removes the current user from the group. Cannot be the group owner or an Account Admin.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupIdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/group_memberships/{group_id}/users/{user_id}": {
+      "delete": {
+        "tags": [
+          "Group memberships"
+        ],
+        "summary": "Remove a user from a group",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupIdPath"
+          },
+          {
+            "$ref": "#/components/parameters/UserIdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/group_memberships/{group_id}/global_teams/{team_id}": {
+      "delete": {
+        "tags": [
+          "Group memberships"
+        ],
+        "summary": "Remove a global team from a group",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupIdPath"
+          },
+          {
+            "$ref": "#/components/parameters/TeamIdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/group_memberships/all": {
+      "post": {
+        "tags": [
+          "Group memberships"
+        ],
+        "summary": "Manage a user's group membership globally",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "users": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/MembershipUserInput"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/GroupsResponse"
+          }
+        }
+      }
+    },
+    "/group_memberships/all/users/{user_id}": {
+      "delete": {
+        "tags": [
+          "Group memberships"
+        ],
+        "summary": "Remove a user from all groups",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UserIdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/projects": {
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "List projects",
+        "description": "Returns the same data as `/sessions/current` (minus `user_id`).",
+        "parameters": [
+          {
+            "name": "f_recent_projects_ids",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            },
+            "description": "If 1, also returns `recent_project_ids`. Avoid calling more than once an hour."
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SessionResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Create a project",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectCreate"
+              },
+              "example": {
+                "project_name": "by api",
+                "project_description": "",
+                "project_color": "",
+                "todo_view_type": "",
+                "usage_type": "",
+                "group_id": "example_group_id",
+                "group_name": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SessionResponse"
+          }
+        }
+      }
+    },
+    "/projects/{project_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectIdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Get a project",
+        "description": "Like `/projects` but the `projects` array holds only the specified project,\nwith extra fields: `notifications`, `f_subtasks_adv`, `f_can_add_tasks`.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SessionResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Edit a project",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectEdit"
+              },
+              "example": {
+                "project_name": "by api edited",
+                "project_color": "34ad22",
+                "group_id": "example_group_id",
+                "cs_tpl_id": 0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SessionResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Delete a project (NOT supported now)",
+        "deprecated": true,
+        "description": "WARNING: not supported now.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/recent_project_ids": {
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "List recently visited project ids",
+        "description": "Ordered most-recently-visited first. Avoid calling more than once an hour.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "recent_project_ids": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/project_memberships/all/users": {
+      "post": {
+        "tags": [
+          "Project memberships"
+        ],
+        "summary": "Add/remove a user across multiple projects",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "add_project_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "remove_project_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "example": {
+                "email": "example_email",
+                "add_project_ids": [
+                  "example_project_id"
+                ],
+                "remove_project_ids": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SessionResponse"
+          }
+        }
+      }
+    },
+    "/project_memberships/{project_id}": {
+      "delete": {
+        "tags": [
+          "Project memberships"
+        ],
+        "summary": "Leave a project",
+        "description": "Removes the current user from the project. Cannot be the project owner or a Group Admin.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectIdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/project_memberships/{project_id}/global_teams/{team_id}": {
+      "delete": {
+        "tags": [
+          "Project memberships"
+        ],
+        "summary": "Remove a global team from a project",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectIdPath"
+          },
+          {
+            "$ref": "#/components/parameters/TeamIdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/installs/{module_id}/{container_id}": {
+      "parameters": [
+        {
+          "name": "module_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "container_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "project_id or group_id depending on module type."
+        }
+      ],
+      "post": {
+        "tags": [
+          "Installs"
+        ],
+        "summary": "Install a module (NOT public)",
+        "deprecated": true,
+        "description": "WARNING: not allowed publicly for now.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Installs"
+        ],
+        "summary": "Uninstall a module (NOT public)",
+        "deprecated": true,
+        "description": "WARNING: not allowed publicly for now.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/global_teams": {
+      "get": {
+        "tags": [
+          "Global teams"
+        ],
+        "summary": "List global teams",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TeamsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Global teams"
+        ],
+        "summary": "Create a global team",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "user_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TeamsResponse"
+          }
+        }
+      }
+    },
+    "/global_teams/{team_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TeamIdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Global teams"
+        ],
+        "summary": "Get a global team",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TeamsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Global teams"
+        ],
+        "summary": "Edit a global team",
+        "description": "Same fields as create; pass only changed parameters.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "user_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TeamsResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Global teams"
+        ],
+        "summary": "Delete a global team",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/team_memberships/{team_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/TeamIdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Team memberships"
+        ],
+        "summary": "Add users, groups or projects to a team",
+        "description": "Pass exactly one of `users`, `groups`, or `projects`.",
+        "parameters": [
+          {
+            "name": "f_dry_run",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ],
+              "default": 1
+            },
+            "description": "1 to preview without applying (default). Pass 0 to apply."
+          },
+          {
+            "name": "f_set",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            },
+            "description": "1 to replace the entire list instead of adding to it."
+          },
+          {
+            "name": "deleted_user_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "f_keep_in_project",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "users": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/MembershipUserInput"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "groups": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "group_id": {
+                              "type": "string"
+                            },
+                            "context_role_id": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "projects": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "project_id": {
+                              "type": "string"
+                            },
+                            "context_role_id": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "users": [
+                  {
+                    "email": "example_email"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TeamsResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Team memberships"
+        ],
+        "summary": "Remove a user from a team",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TeamsResponse"
+          }
+        }
+      }
+    },
+    "/overviews/{project_id}": {
+      "get": {
+        "tags": [
+          "Overviews"
+        ],
+        "summary": "Get project Overview data (deprecated)",
+        "deprecated": true,
+        "description": "Deprecated; use `/projects/{project_id}?f_for_overview_app=1` instead.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectIdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/invitations": {
+      "get": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "List pending invitations",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "invitations": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/Invitation"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Invitations"
+        ],
+        "summary": "Accept or decline invitations",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "invitations": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "hash",
+                        "action"
+                      ],
+                      "properties": {
+                        "hash": {
+                          "type": "string"
+                        },
+                        "action": {
+                          "type": "string",
+                          "enum": [
+                            "accept",
+                            "decline"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "invitations": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/Invitation"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List visible users",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/UsersResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Register a user",
+        "description": "`X-API-TOKEN` should be empty. To include an avatar, use multipart/form-data\n(a `data` JSON field plus an `avatar` file field).\n",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "string",
+                    "description": "JSON-encoded UserCreate payload."
+                  },
+                  "avatar": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SessionResponse"
+          }
+        }
+      }
+    },
+    "/users/current": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get current user",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/UsersResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Edit current user",
+        "description": "Changing email or password requires `confirmation_password` and logs the\nuser out of all devices; a new `token` is returned and must replace the old one.\n",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "users": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/User"
+                              }
+                            },
+                            "token": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{user_id}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get a user",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UserIdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/UsersResponse"
+          }
+        }
+      }
+    },
+    "/wipe/current": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Get pre-deletion account info (NOT public)",
+        "deprecated": true,
+        "description": "WARNING: not allowed publicly for now. Returns `f_password_needed`.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "f_password_needed": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Delete account (NOT public)",
+        "deprecated": true,
+        "description": "WARNING: not allowed publicly for now. Deletes the account and all linked data.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "description": "Required only if `f_password_needed` is true."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/password_reset_emails": {
+      "post": {
+        "tags": [
+          "Passwords"
+        ],
+        "summary": "Request a password reset email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "msg": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/passwords": {
+      "post": {
+        "tags": [
+          "Passwords"
+        ],
+        "summary": "Set a new password using a reset key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "password",
+                  "reset_key"
+                ],
+                "properties": {
+                  "password": {
+                    "type": "string"
+                  },
+                  "reset_key": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/avatars/current": {
+      "post": {
+        "tags": [
+          "Avatars"
+        ],
+        "summary": "Update current user's avatar",
+        "description": "Send the avatar as a form `file` field (not inside JSON `data`).",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "avatar": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "avatar": {
+                              "type": "object",
+                              "properties": {
+                                "avatar_url": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Avatars"
+        ],
+        "summary": "Reset avatar to default",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "avatar": {
+                              "type": "object",
+                              "properties": {
+                                "avatar_url": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "List notifications (all projects)",
+        "description": "Disabled by default; contact support to enable. Can be slow.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FollowingQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/NotificationsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mark notifications as read",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "new_state": {
+                    "type": "string",
+                    "enum": [
+                      "read"
+                    ]
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "item_u_key": {
+                          "type": "string"
+                        },
+                        "last_action_ts": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "example": {
+                "new_state": "read",
+                "items": [
+                  {
+                    "item_u_key": "267200_415044_2_2034232",
+                    "last_action_ts": "425235345"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/NotificationsResponse"
+          }
+        }
+      }
+    },
+    "/notifications/{project_id}": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "List notifications for a project",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectIdPath"
+          },
+          {
+            "$ref": "#/components/parameters/FollowingQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/NotificationsResponse"
+          }
+        }
+      }
+    },
+    "/validations/email": {
+      "get": {
+        "tags": [
+          "Validations"
+        ],
+        "summary": "Validate an invitation email",
+        "description": "Checks that an email is valid and not already in the project; returns an\navatar URL on success. (Wiki documents this under `/notifications/email`.)\n",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "email"
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "avatar_url": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks": {
+      "get": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "List tasks",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/IncludeTags"
+          },
+          {
+            "name": "f_cf",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            },
+            "description": "Include custom fields data and `cf_templates`."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "name": "assigned_to_id",
+            "in": "query",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "name": "created_by_id",
+            "in": "query",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "name": "due_date[from]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "due_date[to]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "created_date[from]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "created_date[to]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "f_with_archived",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          {
+            "name": "lists_status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "archived",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "order[due_date]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "order[priority]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TasksResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Create a task",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskCreate"
+              },
+              "example": {
+                "title": "example_title",
+                "description": "by api",
+                "project_id": "example_project_id",
+                "list_id": "example_task_list_id",
+                "list_title": "",
+                "priority": "1",
+                "assigned_to_id": "user_id",
+                "due_date": "2015-08-28",
+                "status": "0",
+                "completed_date": "2019-08-28",
+                "attached_ids": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TasksResponse"
+          }
+        }
+      }
+    },
+    "/tasks/{task_id}": {
+      "parameters": [
+        {
+          "name": "task_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Get a task",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TasksResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Edit a task",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskEdit"
+              },
+              "example": {
+                "title": "Task 0",
+                "description": "by api",
+                "list_id": "example_task_list_id",
+                "priority": "2",
+                "assigned_to_id": "user_id",
+                "due_date": "example_due_date",
+                "status": "2"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TasksResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Delete a task",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/tasks/batch": {
+      "post": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Batch edit tasks",
+        "description": "Edit up to 500 tasks at once. Only passed fields are updated.\nThe followers operation is mutually exclusive with field edits.\n",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "batch_ids"
+                ],
+                "properties": {
+                  "batch_ids": {
+                    "type": "array",
+                    "maxItems": 500,
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "priority": {
+                    "type": "integer"
+                  },
+                  "status_id": {
+                    "type": "integer"
+                  },
+                  "assigned_to_id": {
+                    "type": "integer"
+                  },
+                  "assigned_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "due_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "ms_id": {
+                    "type": "string"
+                  },
+                  "cs_id": {
+                    "type": "string"
+                  },
+                  "h_parent_id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "custom_fields": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CustomFieldValue"
+                    }
+                  },
+                  "followers_operation": {
+                    "type": "string",
+                    "enum": [
+                      "set",
+                      "subscribe",
+                      "unsubscribe"
+                    ]
+                  },
+                  "follower_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              },
+              "example": {
+                "batch_ids": [
+                  111,
+                  222,
+                  333,
+                  0
+                ],
+                "due_date": "today_date"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "tasks": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/Task"
+                              }
+                            },
+                            "errors": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/milestones": {
+      "get": {
+        "tags": [
+          "Milestones"
+        ],
+        "summary": "List milestones",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MilestonesResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Milestones"
+        ],
+        "summary": "Create a milestone",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MilestoneCreate"
+              },
+              "example": {
+                "title": "example_title",
+                "description": "by api",
+                "project_id": "example_project_id",
+                "priority": 2,
+                "assigned_to_id": "user_id",
+                "due_date": "2015-08-28",
+                "status": 0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MilestonesResponse"
+          }
+        }
+      }
+    },
+    "/milestones/{milestone_id}": {
+      "parameters": [
+        {
+          "name": "milestone_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Milestones"
+        ],
+        "summary": "Get a milestone",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MilestonesResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Milestones"
+        ],
+        "summary": "Edit a milestone",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/MilestoneCreate"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "integer",
+                        "enum": [
+                          0,
+                          1,
+                          2
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "title": "example_title",
+                "description": "by api",
+                "priority": 2,
+                "status": 2,
+                "assigned_to_id": "user_id",
+                "due_date": "2015-09-28",
+                "start_date": "2015-08-28"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MilestonesResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Milestones"
+        ],
+        "summary": "Delete a milestone",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/issues": {
+      "get": {
+        "tags": [
+          "Issues"
+        ],
+        "summary": "List issues",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/IncludeTags"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2,
+                  3
+                ]
+              }
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1,
+                  2,
+                  3,
+                  4
+                ]
+              }
+            }
+          },
+          {
+            "name": "assigned_to_id",
+            "in": "query",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "name": "due_date[from]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "due_date[to]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "order[due_date]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IssuesResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Issues"
+        ],
+        "summary": "Create an issue",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueCreate"
+              },
+              "example": {
+                "title": "example_title",
+                "description": "by api",
+                "project_id": "example_project_id",
+                "priority": 2,
+                "status": 3,
+                "type": "invalid",
+                "assigned_to_id": "user_id",
+                "due_date": "2015-08-28",
+                "closer_id": "user_id",
+                "attached_ids": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IssuesResponse"
+          }
+        }
+      }
+    },
+    "/issues/{issue_id}": {
+      "parameters": [
+        {
+          "name": "issue_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Issues"
+        ],
+        "summary": "Get an issue",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IssuesResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Issues"
+        ],
+        "summary": "Edit an issue",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueCreate"
+              },
+              "example": {
+                "title": "example_title",
+                "description": "by api2",
+                "project_id": "example_project_id",
+                "priority": 2,
+                "status": 3,
+                "type": "bug",
+                "assigned_to_id": "user_id",
+                "due_date": "2015-08-28",
+                "closer_id": "user_id",
+                "attached_ids": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/IssuesResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Issues"
+        ],
+        "summary": "Delete an issue",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/times": {
+      "get": {
+        "tags": [
+          "Times"
+        ],
+        "summary": "List time records",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "name": "assigned_to_id",
+            "in": "query",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "name": "date[from]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "date[to]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "order[date]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TimesResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Times"
+        ],
+        "summary": "Create a time record",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimeCreate"
+              },
+              "example": {
+                "description": "example_title",
+                "project_id": "example_project_id",
+                "assigned_to_id": "user_id",
+                "date": "2019-04-03",
+                "minutes_count": "20",
+                "f_started": 1,
+                "f_billed": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TimesResponse"
+          }
+        }
+      }
+    },
+    "/times/{time_id}": {
+      "parameters": [
+        {
+          "name": "time_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Times"
+        ],
+        "summary": "Get a time record",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TimesResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Times"
+        ],
+        "summary": "Edit a time record or run an action",
+        "description": "With a non-empty `action`, runs the action (start/stop/bill/unbill).\nOtherwise updates properties.\n",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "description": {
+                        "type": "string"
+                      },
+                      "assigned_to_id": {
+                        "type": "string"
+                      },
+                      "date": {
+                        "type": "string",
+                        "format": "date"
+                      },
+                      "minutes_count": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "integer",
+                        "enum": [
+                          0,
+                          1,
+                          2
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "start",
+                          "stop",
+                          "bill",
+                          "unbill"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "description": "Edited 0",
+                "assigned_to_id": "-1",
+                "date": "2019-04-03",
+                "minutes_count": "0"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TimesResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Times"
+        ],
+        "summary": "Delete a time record",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/calendar_items": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "List calendar items (grouped by application)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectIdQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "tasks": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/Task"
+                              }
+                            },
+                            "milestones": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/Milestone"
+                              }
+                            },
+                            "issues": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/Issue"
+                              }
+                            },
+                            "events": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/Event"
+                              }
+                            },
+                            "crm_calls": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/CrmCall"
+                              }
+                            },
+                            "crm_tasks": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/CrmTask"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "List events",
+        "description": "Default period is the current month; override with `from_ts`/`to_ts`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "name": "from_ts",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "to_ts",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EventsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Create an event",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventCreate"
+              },
+              "example": {
+                "project_id": "example_project_id",
+                "title": "example_title",
+                "description": "event example",
+                "f_all_day": "1",
+                "start_date": "example_due_date",
+                "start_time": "example_event_time",
+                "end_date": "example_due_date",
+                "end_time": "example_event_time",
+                "r_rule": "example_r_rule",
+                "f_response_notify": 1,
+                "mixed_users": [
+                  189,
+                  286,
+                  "some@gmail.com"
+                ],
+                "attached_ids": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EventsResponse"
+          }
+        }
+      }
+    },
+    "/events/{event_id}": {
+      "parameters": [
+        {
+          "name": "event_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Get an event",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EventsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Edit an event",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventCreate"
+              },
+              "example": {
+                "title": "[edited] 0",
+                "description": "event example",
+                "f_all_day": "",
+                "start_date": "example_due_date",
+                "start_time": "example_event_time",
+                "end_date": "example_due_date",
+                "end_time": "example_event_time",
+                "r_rule": "example_r_rule",
+                "attached_ids": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EventsResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Delete an event",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/discussions": {
+      "get": {
+        "tags": [
+          "Discussions"
+        ],
+        "summary": "List discussions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DiscussionsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Discussions"
+        ],
+        "summary": "Create a discussion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscussionCreate"
+              },
+              "example": {
+                "title": "example_title",
+                "description": "by api",
+                "project_id": "example_project_id",
+                "list_id": "",
+                "list_title": "new group by API",
+                "list_descr": "---",
+                "f_sticky": false,
+                "f_private": false,
+                "private_users": [
+                  157
+                ],
+                "notifications": [
+                  218,
+                  157,
+                  202
+                ],
+                "attached_ids": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DiscussionsResponse"
+          }
+        }
+      }
+    },
+    "/discussions/{discussion_id}": {
+      "parameters": [
+        {
+          "name": "discussion_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Discussions"
+        ],
+        "summary": "Get a discussion",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DiscussionsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Discussions"
+        ],
+        "summary": "Edit a discussion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "list_id": {
+                    "type": "string"
+                  },
+                  "list_title": {
+                    "type": "string"
+                  },
+                  "list_descr": {
+                    "type": "string"
+                  },
+                  "f_sticky": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  }
+                }
+              },
+              "example": {
+                "title": "0 edited",
+                "list_id": "example_discussion_list_id",
+                "list_title": "",
+                "list_descr": "",
+                "f_sticky": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DiscussionsResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Discussions"
+        ],
+        "summary": "Delete a discussion",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/wikis": {
+      "get": {
+        "tags": [
+          "Wikis"
+        ],
+        "summary": "List wiki pages",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "name": "order[title]",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/WikisResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Wikis"
+        ],
+        "summary": "Create a wiki page",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WikiCreate"
+              },
+              "example": {
+                "title": "example_title",
+                "description": "by api",
+                "project_id": "example_project_id",
+                "list_id": "",
+                "list_title": "new group by API",
+                "list_descr": "---",
+                "f_private": true,
+                "f_public": false,
+                "private_users": [
+                  202
+                ],
+                "attached_ids": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/WikisResponse"
+          }
+        }
+      }
+    },
+    "/wikis/{wiki_id}": {
+      "parameters": [
+        {
+          "name": "wiki_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Wikis"
+        ],
+        "summary": "Get a wiki page",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/WikisResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Wikis"
+        ],
+        "summary": "Edit a wiki page",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/WikiCreate"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "f_new_version": {
+                        "type": "boolean",
+                        "description": "true saves the change as a new version snapshot."
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "f_new_version": false,
+                "title": "0 edited",
+                "description": "by api edited",
+                "list_id": "",
+                "list_title": "Edited group",
+                "list_descr": "",
+                "f_private": false,
+                "f_public": false,
+                "private_users": [
+                  157
+                ],
+                "attached_ids": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/WikisResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Wikis"
+        ],
+        "summary": "Delete a wiki page",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/comments": {
+      "post": {
+        "tags": [
+          "Comments"
+        ],
+        "summary": "Add a comment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "item_id",
+                  "app_id"
+                ],
+                "properties": {
+                  "item_id": {
+                    "type": "string"
+                  },
+                  "app_id": {
+                    "type": "string",
+                    "description": "Supported apps - APP_TODOS, APP_FILES, APP_DISCUSSIONS, APP_BUGTRACKER, APP_WIKI, APP_CALENDAR."
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "task_id": {
+                    "type": "string",
+                    "description": "Deprecated."
+                  },
+                  "attached_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              },
+              "example": {
+                "task_id": "example_task_id",
+                "description": "by api",
+                "attached_ids": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommentsResponse"
+          }
+        }
+      }
+    },
+    "/comments/{comment_id}": {
+      "parameters": [
+        {
+          "name": "comment_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Comments"
+        ],
+        "summary": "Edit a comment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "description": "<p>[fcattach=1308 type=img size=full]</p> hjjjmlllsshjmhjmhjm <p>gngfhn<br /> &nbsp;2222222222222</p>"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommentsResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Comments"
+        ],
+        "summary": "Delete a comment",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/files": {
+      "post": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Upload a file",
+        "description": "Send a `data` JSON field plus a `file` binary field as multipart/form-data.",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "string",
+                    "description": "JSON with application_id (required), project_id, item_id,\ncomment_id, temporary.\n"
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/FilesResponse"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "List files",
+        "operationId": "files_get",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/FilesResponse"
+          }
+        },
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "example_project_id"
+          }
+        ]
+      }
+    },
+    "/files/{file_id}": {
+      "parameters": [
+        {
+          "name": "file_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Get a file",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/FilesResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Delete a file",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/timezones": {
+      "get": {
+        "tags": [
+          "Timezones"
+        ],
+        "summary": "List timezones",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "timezones": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/Timezone"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lists/{app_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/AppIdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "List app lists",
+        "description": "With `project_id`, lists for that project. Without it (Tasks only), lists across all projects.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectIdQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ListsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "Create a list",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "project_id"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "project_id": {
+                    "type": "string"
+                  },
+                  "h_parent_id": {
+                    "type": "integer",
+                    "description": "APP_FILES only - parent folder id for subfolders."
+                  }
+                }
+              },
+              "example": {
+                "project_id": "example_project_id",
+                "title": "List by API",
+                "description": "by api"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ListsResponse"
+          }
+        }
+      }
+    },
+    "/lists/{app_id}/{list_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/AppIdPath"
+        },
+        {
+          "name": "list_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "Edit a list",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "title": "List by API edited",
+                "description": "by api"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ListsResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "Delete a list (NOT public)",
+        "deprecated": true,
+        "description": "WARNING: not allowed publicly for now.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/favorite_projects/{project_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectIdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Favorite projects"
+        ],
+        "summary": "Mark a project as favorite",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Favorite projects"
+        ],
+        "summary": "Unmark a project as favorite",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/linked_items/{app_id}/{item_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/AppIdPath"
+        },
+        {
+          "name": "item_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Linked items"
+        ],
+        "summary": "Get linked items",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Linked items"
+        ],
+        "summary": "Link items",
+        "description": "Keys are target app_ids; values are arrays of item ids in that app.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "example": {
+                "2": [
+                  0
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/cf_templates": {
+      "get": {
+        "tags": [
+          "Custom field templates"
+        ],
+        "summary": "List custom field templates",
+        "parameters": [
+          {
+            "name": "module_id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 2
+            },
+            "description": "2 (Tasks), 13 (Bugtracker), 37 (Projects)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CfTemplatesResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Custom field templates"
+        ],
+        "summary": "Create a custom field template",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CfTemplateCreate"
+              },
+              "example": {
+                "title": "CF Template by API",
+                "module_id": "2",
+                "owner_id": "user_id",
+                "fields": [
+                  {
+                    "id": "0",
+                    "type": "text_field",
+                    "title": "My Field",
+                    "f_required": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CfTemplatesResponse"
+          }
+        }
+      }
+    },
+    "/cf_templates/{cft_id}": {
+      "parameters": [
+        {
+          "name": "cft_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Custom field templates"
+        ],
+        "summary": "Edit a custom field template",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CfTemplateCreate"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "deleted_field_ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer"
+                        }
+                      },
+                      "f_archived": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "title": "CF Template by API edited",
+                "module_id": "2",
+                "fields": [
+                  {
+                    "id": "0",
+                    "type": "text_field",
+                    "title": "My Field edited",
+                    "f_required": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CfTemplatesResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Custom field templates"
+        ],
+        "summary": "Delete a custom field template (NOT public)",
+        "deprecated": true,
+        "description": "WARNING: not allowed publicly for now.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/backups": {
+      "get": {
+        "tags": [
+          "Backups"
+        ],
+        "summary": "List backups",
+        "description": "Ordered by date created DESC. Use a reasonable limit.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "backups": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/Backup"
+                              }
+                            },
+                            "meta": {
+                              "$ref": "#/components/schemas/Meta"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/crm_tasks": {
+      "get": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "List CRM tasks",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmTasksResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Create a CRM task",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrmTaskCreate"
+              },
+              "example": {
+                "title": "example_title",
+                "description": "by api",
+                "group_id": "example_group_id",
+                "type": "Demo",
+                "contact_title": "bear bear",
+                "f_private": 0,
+                "assigned_to_id": "user_id",
+                "due_date": "2015-08-28"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmTasksResponse"
+          }
+        }
+      }
+    },
+    "/crm_tasks/{crm_task_id}": {
+      "parameters": [
+        {
+          "name": "crm_task_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Get a CRM task",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmTasksResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Edit a CRM task",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CrmTaskCreate"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "integer",
+                        "enum": [
+                          0,
+                          1,
+                          2
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "title": "example_title",
+                "description": "by api",
+                "status": 1,
+                "type": "Lunch",
+                "contact_title": "bear 1 bear",
+                "f_private": 0,
+                "assigned_to_id": "202",
+                "due_date": "2018-08-28"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmTasksResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Delete a CRM task",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/crm_calls": {
+      "get": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "List CRM calls",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmCallsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Create a CRM call",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrmCallCreate"
+              },
+              "example": {
+                "title": "example_title",
+                "description": "by api",
+                "group_id": "example_group_id",
+                "f_inbound": true,
+                "contact_title": "bear bear",
+                "assigned_to_id": "user_id",
+                "due_date": "2019-03-13 15:00:00",
+                "duration": 120
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmCallsResponse"
+          }
+        }
+      }
+    },
+    "/crm_calls/{crm_call_id}": {
+      "parameters": [
+        {
+          "name": "crm_call_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Get a CRM call",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmCallsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Edit a CRM call",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrmCallCreate"
+              },
+              "example": {
+                "title": "example_title",
+                "description": "by api",
+                "f_inbound": true,
+                "contact_title": "bear bear",
+                "assigned_to_id": "user_id",
+                "due_date": "2019-03-13 17:00:00",
+                "duration": 120
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmCallsResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Delete a CRM call",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Empty"
+          }
+        }
+      }
+    },
+    "/crm_contacts": {
+      "get": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "List CRM contacts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/PageNum"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmContactsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Create a CRM contact or lead",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrmContactCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmContactsResponse"
+          }
+        }
+      }
+    },
+    "/crm_contacts/{contact_id}": {
+      "parameters": [
+        {
+          "name": "contact_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Get a CRM contact",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmContactsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Edit a CRM contact",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrmContactCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmContactsResponse"
+          }
+        }
+      }
+    },
+    "/crm_contacts/{contact_id}/leads_to_contacts": {
+      "post": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Convert a lead to a contact",
+        "parameters": [
+          {
+            "name": "contact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmContactsResponse"
+          }
+        }
+      }
+    },
+    "/crm_leads": {
+      "get": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "List CRM leads",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/PageNum"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmContactsResponse"
+          }
+        }
+      }
+    },
+    "/crm_campaigns": {
+      "get": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "List CRM campaigns",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/PageNum"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmCampaignsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Create a CRM campaign",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrmCampaignCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmCampaignsResponse"
+          }
+        }
+      }
+    },
+    "/crm_campaigns/{campaign_id}": {
+      "parameters": [
+        {
+          "name": "campaign_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Get a CRM campaign",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmCampaignsResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Edit a CRM campaign",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "assigned_to_id": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "target_earnings": {
+                    "type": "number"
+                  },
+                  "target_leads": {
+                    "type": "integer"
+                  },
+                  "profitability": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmCampaignsResponse"
+          }
+        }
+      }
+    },
+    "/crm_campaigns/{campaign_id}/results": {
+      "post": {
+        "tags": [
+          "CRM"
+        ],
+        "summary": "Add a campaign result",
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "earnings",
+                  "leads_gained",
+                  "status"
+                ],
+                "properties": {
+                  "earnings": {
+                    "type": "number"
+                  },
+                  "leads_gained": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "planned",
+                      "started",
+                      "completed",
+                      "on_hold"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CrmCampaignsResponse"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyQuery": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "api_key",
+        "description": "Pass your API key as the `api_key` query parameter. For secured keys,\nalso add `timestamp` and `hash` query parameters (see info description).\n"
+      },
+      "ApiKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-KEY"
+      },
+      "SessionToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-TOKEN"
+      }
+    },
+    "parameters": {
+      "Timestamp": {
+        "name": "timestamp",
+        "in": "query",
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Request UNIX timestamp. Required for secured API keys."
+      },
+      "Hash": {
+        "name": "hash",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        },
+        "description": "HMAC-SHA1 of (api_key + timestamp) keyed by api_secret. Required for secured API keys."
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "default": 200,
+          "maximum": 200
+        }
+      },
+      "Offset": {
+        "name": "offset",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "default": 0
+        }
+      },
+      "PageNum": {
+        "name": "page_num",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "ProjectIdQuery": {
+        "name": "project_id",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "GroupIdQuery": {
+        "name": "group_id",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "CRM group id."
+      },
+      "IncludeTags": {
+        "name": "f_include_tags",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ]
+        }
+      },
+      "FollowingQuery": {
+        "name": "following",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "description": "1 to return only items the user follows."
+      },
+      "ProjectIdPath": {
+        "name": "project_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "GroupIdPath": {
+        "name": "group_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "UserIdPath": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "TeamIdPath": {
+        "name": "team_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "AppIdPath": {
+        "name": "app_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Integer application id (e.g. 2 Tasks, 6 Files, 3 Discussions, 14 Wiki, PassMan)."
+      }
+    },
+    "requestBodies": {
+      "SessionCreate": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string",
+                  "format": "email"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "oauth_provider": {
+                  "type": "string",
+                  "enum": [
+                    "apple",
+                    "google",
+                    "linkedin",
+                    "twitter"
+                  ]
+                },
+                "oauth_access_token": {
+                  "type": "string"
+                },
+                "mobile_app_version": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Empty": {
+        "description": "OK (empty data)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiResponse"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Wrong credentials",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiResponse"
+            }
+          }
+        }
+      },
+      "SessionResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "projects": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Project"
+                          }
+                        },
+                        "users": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/User"
+                          }
+                        },
+                        "groups": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Group"
+                          }
+                        },
+                        "notifications_count": {
+                          "type": "integer"
+                        },
+                        "token": {
+                          "type": "string"
+                        },
+                        "user_id": {
+                          "type": "string"
+                        },
+                        "recent_project_ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "GroupsResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "groups": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Group"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "UsersResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "users": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/User"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "TeamsResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "teams": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/GlobalTeam"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "NotificationsResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "notifications": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Notification"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "TasksResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "tasks": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Task"
+                          }
+                        },
+                        "cf_templates": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CustomFieldTemplate"
+                          }
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/Meta"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "MilestonesResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "milestones": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Milestone"
+                          }
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/Meta"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "IssuesResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Issue"
+                          }
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/Meta"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "TimesResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "times": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Time"
+                          }
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/Meta"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "EventsResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "events": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Event"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "DiscussionsResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "discussions": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Discussion"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "WikisResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "wikis": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Wiki"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "CommentsResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "comments": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Comment"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "FilesResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "files": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/File"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "ListsResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "lists": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/List"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "CfTemplatesResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "cf_templates": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CustomFieldTemplate"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "CrmTasksResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "crm_tasks": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CrmTask"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "CrmCallsResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "crm_calls": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CrmCall"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "CrmContactsResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "crm_contacts": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CrmContact"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "CrmCampaignsResponse": {
+        "description": "OK",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "crm_campaigns": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CrmCampaign"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "http_code": {
+            "type": "integer",
+            "description": "Duplicates the HTTP code in the headers."
+          },
+          "msg": {
+            "type": "string",
+            "description": "'OK' on success, an error description otherwise."
+          },
+          "error_id": {
+            "type": "integer",
+            "description": "Logged error id (for support reference)."
+          },
+          "maintenance": {
+            "$ref": "#/components/schemas/Maintenance"
+          },
+          "data": {
+            "type": "object",
+            "description": "Request-specific data. On error, validation errors are under `data.errors`."
+          }
+        }
+      },
+      "Maintenance": {
+        "type": "object",
+        "properties": {
+          "start_ts": {
+            "type": "integer"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Planned duration in minutes."
+          },
+          "msg": {
+            "type": "string"
+          }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "properties": {
+          "has_more": {
+            "type": "boolean"
+          },
+          "total_count": {
+            "type": "integer",
+            "description": "Present when has_more is true."
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "avatar_url": {
+            "type": "string"
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "description": "null if the requester lacks permission to see it."
+          },
+          "timezone": {
+            "type": "string"
+          }
+        }
+      },
+      "UserCreate": {
+        "type": "object",
+        "required": [
+          "email",
+          "first_name"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "oauth_provider": {
+            "type": "string"
+          },
+          "oauth_access_token": {
+            "type": "string"
+          },
+          "mobile_app_version": {
+            "type": "string"
+          }
+        }
+      },
+      "UserEdit": {
+        "type": "object",
+        "required": [
+          "first_name"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "confirmation_password": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          }
+        }
+      },
+      "MembershipUserInput": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string"
+          },
+          "context_role_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "role_name": {
+            "type": "string"
+          },
+          "role_type": {
+            "type": "string"
+          },
+          "project_name": {
+            "type": "string"
+          },
+          "project_description": {
+            "type": "string"
+          },
+          "project_color": {
+            "type": "string"
+          },
+          "f_active": {
+            "type": "boolean"
+          },
+          "project_unique_name": {
+            "type": "string"
+          },
+          "f_favorite": {
+            "type": "boolean"
+          },
+          "f_can_delete": {
+            "type": "boolean"
+          },
+          "f_can_manage": {
+            "type": "boolean"
+          },
+          "f_can_leave": {
+            "type": "boolean"
+          },
+          "notifications_count": {
+            "type": "integer"
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "f_subtasks_adv": {
+            "type": "boolean"
+          },
+          "f_can_add_tasks": {
+            "type": "boolean"
+          },
+          "notifications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Notification"
+            }
+          }
+        }
+      },
+      "ProjectCreate": {
+        "type": "object",
+        "properties": {
+          "project_name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "project_description": {
+            "type": "string"
+          },
+          "project_color": {
+            "type": "string"
+          },
+          "todo_view_type": {
+            "type": "string",
+            "enum": [
+              "kanban",
+              "default"
+            ]
+          },
+          "f_first": {
+            "type": "boolean"
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "group_name": {
+            "type": "string"
+          },
+          "changed_users": {
+            "$ref": "#/components/schemas/ChangedUsers"
+          }
+        }
+      },
+      "ProjectEdit": {
+        "type": "object",
+        "required": [
+          "project_name",
+          "project_color"
+        ],
+        "properties": {
+          "project_name": {
+            "type": "string"
+          },
+          "project_description": {
+            "type": "string"
+          },
+          "project_color": {
+            "type": "string"
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "group_name": {
+            "type": "string"
+          },
+          "f_active": {
+            "type": "boolean"
+          },
+          "f_only_users_update": {
+            "type": "boolean"
+          },
+          "changed_users": {
+            "$ref": "#/components/schemas/ChangedUsers"
+          }
+        }
+      },
+      "ChangedUsers": {
+        "type": "object",
+        "properties": {
+          "added": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "row_id": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string",
+                  "format": "email"
+                },
+                "first_name": {
+                  "type": "string"
+                },
+                "last_name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "updated": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "user_id": {
+                  "type": "string"
+                },
+                "team_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "deleted": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "user_id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Group": {
+        "type": "object",
+        "properties": {
+          "group_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "group_unique_name": {
+            "type": "string"
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "f_managed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GlobalTeam": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "owner_id": {
+            "type": "string"
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pending_user_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "project_id": {
+                  "type": "string"
+                },
+                "role_type": {
+                  "type": "string"
+                },
+                "role_id": {
+                  "type": "string"
+                },
+                "role_name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "group_id": {
+                  "type": "string"
+                },
+                "role_type": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Invitation": {
+        "type": "object",
+        "properties": {
+          "group_name": {
+            "type": "string"
+          },
+          "project_name": {
+            "type": "string"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "invited_by_user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "item_u_key": {
+            "type": "string"
+          },
+          "app_id": {
+            "type": "string"
+          },
+          "item_id": {
+            "type": "string"
+          },
+          "item_title": {
+            "type": "string"
+          },
+          "f_read": {
+            "type": "boolean"
+          },
+          "last_action_ts": {
+            "type": "integer"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description_raw": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "action_ts": {
+                  "type": "integer"
+                },
+                "action_type": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "h_parent_id": {
+            "type": "string"
+          },
+          "h_top_id": {
+            "type": "string"
+          },
+          "h_level": {
+            "type": "string"
+          },
+          "f_adv_subtask": {
+            "type": "boolean"
+          },
+          "assigned_to_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "created_by_id": {
+            "type": "string"
+          },
+          "list_id": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "description_processed": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2
+            ]
+          },
+          "order": {
+            "type": "integer"
+          },
+          "comments_count": {
+            "type": "integer"
+          },
+          "files_count": {
+            "type": "integer"
+          },
+          "completed_ts": {
+            "type": "integer",
+            "nullable": true
+          },
+          "start_ts": {
+            "type": "integer",
+            "nullable": true
+          },
+          "due_ts": {
+            "type": "integer",
+            "nullable": true
+          },
+          "created_ts": {
+            "type": "integer"
+          },
+          "list_title": {
+            "type": "string"
+          },
+          "f_archived_list": {
+            "type": "boolean"
+          },
+          "priority_title": {
+            "type": "string"
+          },
+          "status_title": {
+            "type": "string"
+          },
+          "assigned_to_fullname": {
+            "type": "string"
+          },
+          "r_rule": {
+            "type": "string"
+          },
+          "can_delete": {
+            "type": "boolean"
+          },
+          "can_edit": {
+            "type": "boolean"
+          },
+          "can_assign": {
+            "type": "boolean"
+          },
+          "can_progress": {
+            "type": "boolean"
+          },
+          "can_comment": {
+            "type": "boolean"
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Comment"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/File"
+            }
+          },
+          "url": {
+            "type": "string"
+          },
+          "cf_tpl_id": {
+            "type": "string"
+          },
+          "custom_fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomFieldValue"
+            }
+          }
+        }
+      },
+      "TaskCreate": {
+        "type": "object",
+        "required": [
+          "title",
+          "project_id"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "list_id": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "assigned_to_id": {
+            "type": "integer"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "r_rule": {
+            "type": "string"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "attached_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "h_parent_id": {
+            "type": "string"
+          },
+          "cf_tpl_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "custom_fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomFieldValue"
+            }
+          }
+        }
+      },
+      "TaskEdit": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TaskCreate"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1,
+                  2
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "Milestone": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "description_processed": {
+            "type": "string"
+          },
+          "assigned_to_id": {
+            "type": "string"
+          },
+          "created_by_id": {
+            "type": "string"
+          },
+          "created_ts": {
+            "type": "integer"
+          },
+          "updated_ts": {
+            "type": "integer"
+          },
+          "due_ts": {
+            "type": "integer"
+          },
+          "start_ts": {
+            "type": "integer",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "f_archived": {
+            "type": "boolean"
+          },
+          "assigned_to_fullname": {
+            "type": "string"
+          },
+          "order": {
+            "type": "integer"
+          },
+          "comments_count": {
+            "type": "integer"
+          },
+          "linked_items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Comment"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/File"
+            }
+          },
+          "followers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "app_id": {
+            "type": "string"
+          }
+        }
+      },
+      "MilestoneCreate": {
+        "type": "object",
+        "required": [
+          "title",
+          "project_id",
+          "due_date"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "assigned_to_id": {
+            "type": "integer"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "attached_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "Issue": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "number_prefixed": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "description_processed": {
+            "type": "string"
+          },
+          "created_by_id": {
+            "type": "string"
+          },
+          "assigned_by_email": {
+            "type": "string"
+          },
+          "assigned_to_id": {
+            "type": "string"
+          },
+          "comments_count": {
+            "type": "integer"
+          },
+          "order": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "enum": [
+              1,
+              2,
+              3
+            ]
+          },
+          "type": {
+            "type": "string"
+          },
+          "created_ts": {
+            "type": "integer"
+          },
+          "closed_by_id": {
+            "type": "string"
+          },
+          "closer_id": {
+            "type": "string"
+          },
+          "completed_ts": {
+            "type": "integer",
+            "nullable": true
+          },
+          "due_ts": {
+            "type": "integer",
+            "nullable": true
+          },
+          "status_title": {
+            "type": "string"
+          },
+          "priority_title": {
+            "type": "string"
+          },
+          "assigned_to_fullname": {
+            "type": "string"
+          },
+          "created_by_fullname": {
+            "type": "string"
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Comment"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/File"
+            }
+          },
+          "app_id": {
+            "type": "string"
+          }
+        }
+      },
+      "IssueCreate": {
+        "type": "object",
+        "required": [
+          "title",
+          "project_id"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "enum": [
+              1,
+              2,
+              3
+            ]
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "Bug",
+              "Cosmetics",
+              "Exception",
+              "Feature",
+              "Task",
+              "Usability",
+              "Performance",
+              "Auto-Reported"
+            ]
+          },
+          "assigned_to_id": {
+            "type": "string"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "closer_id": {
+            "type": "string"
+          },
+          "attached_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "Time": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "created_by_id": {
+            "type": "string"
+          },
+          "assigned_to_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "date_ts": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2
+            ]
+          },
+          "minutes_count": {
+            "type": "integer"
+          },
+          "created_ts": {
+            "type": "integer"
+          },
+          "started_ts": {
+            "type": "integer",
+            "nullable": true
+          },
+          "app_id": {
+            "type": "string"
+          }
+        }
+      },
+      "TimeCreate": {
+        "type": "object",
+        "required": [
+          "project_id",
+          "date"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "assigned_to_id": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "minutes_count": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2
+            ]
+          },
+          "link_app_id": {
+            "type": "string"
+          },
+          "link_item_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "created_by_id": {
+            "type": "string"
+          },
+          "due_ts": {
+            "type": "integer"
+          },
+          "start_ts": {
+            "type": "integer"
+          },
+          "end_ts": {
+            "type": "integer"
+          },
+          "root_start_ts": {
+            "type": "integer"
+          },
+          "root_end_ts": {
+            "type": "integer"
+          },
+          "duration": {
+            "type": "integer"
+          },
+          "f_all_day": {
+            "type": "boolean"
+          },
+          "r_rule": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "app_id": {
+            "type": "string"
+          }
+        }
+      },
+      "EventCreate": {
+        "type": "object",
+        "required": [
+          "project_id",
+          "date_start",
+          "date_end"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "f_all_day": {
+            "type": "boolean"
+          },
+          "date_start": {
+            "type": "string",
+            "format": "date"
+          },
+          "time_start": {
+            "type": "string"
+          },
+          "date_end": {
+            "type": "string",
+            "format": "date"
+          },
+          "time_end": {
+            "type": "string"
+          },
+          "r_rule": {
+            "type": "string"
+          },
+          "attached_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "mixed_users": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Discussion": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "list_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "description_processed": {
+            "type": "string"
+          },
+          "created_by_id": {
+            "type": "string"
+          },
+          "created_ts": {
+            "type": "integer"
+          },
+          "updated_ts": {
+            "type": "integer"
+          },
+          "comments_count": {
+            "type": "integer"
+          },
+          "f_sticky": {
+            "type": "boolean"
+          },
+          "f_private": {
+            "type": "boolean"
+          },
+          "private_users": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Comment"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/File"
+            }
+          },
+          "url": {
+            "type": "string"
+          },
+          "app_id": {
+            "type": "string"
+          }
+        }
+      },
+      "DiscussionCreate": {
+        "type": "object",
+        "required": [
+          "title",
+          "project_id"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "list_id": {
+            "type": "string"
+          },
+          "list_title": {
+            "type": "string"
+          },
+          "list_descr": {
+            "type": "string"
+          },
+          "f_sticky": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "f_private": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "private_users": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notifications": {
+            "type": "object"
+          },
+          "attached_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "Wiki": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "list_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "description_processed": {
+            "type": "string"
+          },
+          "created_by_id": {
+            "type": "string"
+          },
+          "created_ts": {
+            "type": "integer"
+          },
+          "updated_ts": {
+            "type": "integer"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "f_private": {
+            "type": "boolean"
+          },
+          "f_public": {
+            "type": "boolean"
+          },
+          "private_users": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/File"
+            }
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "url": {
+            "type": "string"
+          },
+          "app_id": {
+            "type": "string"
+          }
+        }
+      },
+      "WikiCreate": {
+        "type": "object",
+        "required": [
+          "title",
+          "project_id"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "list_id": {
+            "type": "string"
+          },
+          "list_title": {
+            "type": "string"
+          },
+          "list_descr": {
+            "type": "string"
+          },
+          "f_private": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "f_public": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "private_users": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attached_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "description_processed": {
+            "type": "string"
+          },
+          "created_by_id": {
+            "type": "string"
+          },
+          "created_ts": {
+            "type": "integer"
+          },
+          "likes_count": {
+            "type": "integer"
+          },
+          "f_liked": {
+            "type": "boolean"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/File"
+            }
+          },
+          "can_edit": {
+            "type": "boolean"
+          },
+          "f_unread": {
+            "type": "boolean"
+          },
+          "user_full_name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "File": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "thumb_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "size": {
+            "type": "integer"
+          },
+          "version_id": {
+            "type": "integer"
+          },
+          "first_version_id": {
+            "type": "integer"
+          },
+          "is_last_version": {
+            "type": "boolean"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "list_id": {
+            "type": "string"
+          },
+          "comments_count": {
+            "type": "integer"
+          },
+          "file_type": {
+            "type": "string"
+          },
+          "app_id": {
+            "type": "string"
+          },
+          "item_id": {
+            "type": "string"
+          },
+          "comment_id": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "f_temporary": {
+            "type": "boolean"
+          },
+          "location": {
+            "type": "string",
+            "enum": [
+              "storage",
+              "gdrive",
+              "onedrive",
+              "dropbox"
+            ]
+          },
+          "created_ts": {
+            "type": "integer"
+          },
+          "f_image": {
+            "type": "boolean"
+          }
+        }
+      },
+      "List": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "order": {
+            "type": "integer"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "app_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Timezone": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "curr_offset": {
+            "type": "integer",
+            "description": "Minutes, respects DST."
+          },
+          "curr_time": {
+            "type": "string"
+          }
+        }
+      },
+      "Backup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "date_human": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "description": "Authorized S3 URL, expires in 24 hours."
+          }
+        }
+      },
+      "CustomFieldValue": {
+        "type": "object",
+        "properties": {
+          "cf_id": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "dd_actual_value": {
+            "type": "string",
+            "description": "For dropdown fields, the resolved value."
+          }
+        }
+      },
+      "CustomFieldTemplate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "dropdown",
+                    "text_field",
+                    "textarea",
+                    "checkbox",
+                    "number",
+                    "date"
+                  ]
+                },
+                "f_required": {
+                  "type": "boolean"
+                },
+                "order": {
+                  "type": "integer"
+                },
+                "dd_options": {
+                  "type": "array",
+                  "nullable": true,
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "CfTemplateCreate": {
+        "type": "object",
+        "required": [
+          "title",
+          "module_id",
+          "fields"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "module_id": {
+            "type": "integer",
+            "enum": [
+              2,
+              13,
+              37
+            ]
+          },
+          "owner_id": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "type"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "textarea",
+                    "date",
+                    "number",
+                    "currency",
+                    "dd",
+                    "checkbox",
+                    "separator"
+                  ]
+                },
+                "f_required": {
+                  "type": "boolean"
+                },
+                "cf_order": {
+                  "type": "integer"
+                },
+                "currency_code": {
+                  "type": "string"
+                },
+                "dd_options": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "option_id": {
+                        "type": "integer"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "f_default": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "CrmTask": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "contact_title": {
+            "type": "string"
+          },
+          "f_private": {
+            "type": "boolean"
+          },
+          "assigned_to_id": {
+            "type": "string"
+          },
+          "due_date": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2
+            ]
+          },
+          "created_by_id": {
+            "type": "string"
+          },
+          "created_ts": {
+            "type": "integer"
+          },
+          "app_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CrmTaskCreate": {
+        "type": "object",
+        "required": [
+          "title",
+          "group_id"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "contact_title": {
+            "type": "string"
+          },
+          "f_private": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "assigned_to_id": {
+            "type": "string"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "CrmCall": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "f_inbound": {
+            "type": "boolean"
+          },
+          "contact_title": {
+            "type": "string"
+          },
+          "assigned_to_id": {
+            "type": "string"
+          },
+          "due_date": {
+            "type": "string"
+          },
+          "duration": {
+            "type": "integer"
+          },
+          "created_by_id": {
+            "type": "string"
+          },
+          "created_ts": {
+            "type": "integer"
+          },
+          "app_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CrmCallCreate": {
+        "type": "object",
+        "required": [
+          "title",
+          "group_id"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "f_inbound": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "contact_title": {
+            "type": "string"
+          },
+          "assigned_to_id": {
+            "type": "string"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "duration": {
+            "type": "integer"
+          }
+        }
+      },
+      "CrmContact": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "f_lead": {
+            "type": "boolean"
+          },
+          "lead_category": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "referred_by": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string"
+          },
+          "company_id": {
+            "type": "string"
+          },
+          "contacts": {
+            "$ref": "#/components/schemas/CrmContactDetails"
+          },
+          "custom_fields": {
+            "type": "object"
+          },
+          "created_ts": {
+            "type": "integer"
+          },
+          "created_by_id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "app_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CrmContactDetails": {
+        "type": "object",
+        "properties": {
+          "phones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "phone": {
+                  "type": "string"
+                },
+                "phone_type": {
+                  "type": "string",
+                  "enum": [
+                    "Home",
+                    "Office",
+                    "Cell",
+                    "Mobile",
+                    "Fax"
+                  ]
+                }
+              }
+            }
+          },
+          "emails": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string",
+                  "format": "email"
+                },
+                "email_type": {
+                  "type": "string",
+                  "enum": [
+                    "Personal",
+                    "Work"
+                  ]
+                }
+              }
+            }
+          },
+          "IM": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "socials": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "CrmContactCreate": {
+        "type": "object",
+        "required": [
+          "first_name",
+          "last_name",
+          "group_id"
+        ],
+        "properties": {
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "f_lead": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "lead_category": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "referred_by": {
+            "type": "string"
+          },
+          "company_id": {
+            "type": "string"
+          },
+          "company_name": {
+            "type": "string"
+          },
+          "contacts": {
+            "$ref": "#/components/schemas/CrmContactDetails"
+          },
+          "custom_fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CrmCampaign": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "start_ts": {
+            "type": "integer"
+          },
+          "end_ts": {
+            "type": "integer"
+          },
+          "target_earnings": {
+            "type": "number"
+          },
+          "target_leads": {
+            "type": "integer"
+          },
+          "profitability": {
+            "type": "integer"
+          },
+          "assigned_to_id": {
+            "type": "string"
+          },
+          "assigned_to_fullname": {
+            "type": "string"
+          },
+          "earnings_sum": {
+            "type": "number"
+          },
+          "leads_gained_sum": {
+            "type": "integer"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "created_ts": {
+            "type": "integer"
+          },
+          "created_by_id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "app_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CrmCampaignCreate": {
+        "type": "object",
+        "required": [
+          "group_id",
+          "title",
+          "assigned_to_id"
+        ],
+        "properties": {
+          "group_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "assigned_to_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "target_earnings": {
+            "type": "number"
+          },
+          "target_leads": {
+            "type": "integer"
+          },
+          "profitability": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

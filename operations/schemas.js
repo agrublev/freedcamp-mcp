@@ -16,3 +16,17 @@ export const PaginationSchema = z.object({
         "Number of results to skip before starting to return results (for paging)."
     )
 });
+
+// One custom-field value as accepted by the Tasks API
+// (api_docs/swagger.json → components/CustomFieldValue).
+export const CustomFieldValueInput = z.object({
+    cf_id: z.string().describe(
+        "Custom field definition id (from fc_fetch_cf_templates)."
+    ),
+    value: z.string().describe(
+        "New value for the custom field. Dates/numbers are serialized as strings."
+    ),
+    dd_actual_value: Opt(z.string()).describe(
+        "For dropdown fields: exact label of the selected option (required in addition to value)."
+    )
+});

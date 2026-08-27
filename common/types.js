@@ -47,14 +47,41 @@ export const TaskSchema = z.object({
   description: z.string().nullable().optional(),
   project_id: z.union([z.string(), z.number()]),
   task_group_id: z.union([z.string(), z.number()]).nullable().optional(),
+  list_id: z.union([z.string(), z.number()]).nullable().optional(),
+  list_title: z.string().nullable().optional(),
   priority: z.number().int().nullable().optional(),
+  priority_title: z.string().nullable().optional(),
+  status_title: z.string().nullable().optional(),
   assigned_to_id: z.union([z.string(), z.number()]).nullable().optional(),
+  assigned_to_fullname: z.string().nullable().optional(),
   created_by_id: z.union([z.string(), z.number()]).nullable().optional(),
   status: z.number().int().nullable().optional(),
   due_date: TimestampSchema,
   completed_date: TimestampSchema,
   created_ts: TimestampSchema,
   updated_ts: TimestampSchema,
+  // Start/recurrence and hierarchy info returned by the API
+  // (api_docs/swagger.json → Task response).
+  start_ts: TimestampSchema,
+  r_rule: z.string().nullable().optional(),
+  h_parent_id: z.union([z.string(), z.number()]).nullable().optional(),
+  h_top_id: z.union([z.string(), z.number()]).nullable().optional(),
+  h_level: z.number().int().nullable().optional(),
+  f_adv_subtask: z.number().int().nullable().optional(),
+  order: z.number().int().nullable().optional(),
+  comments_count: z.number().int().nullable().optional(),
+  files_count: z.number().int().nullable().optional(),
+  f_archived_list: z.number().int().nullable().optional(),
+  url: z.string().nullable().optional(),
+  cf_tpl_id: z.number().int().nullable().optional(),
+  custom_fields: z
+    .array(
+      z.object({
+        cf_id: z.union([z.string(), z.number()]).nullable().optional(),
+        value: z.string().nullable().optional(),
+      }).passthrough()
+    )
+    .optional(),
 }).passthrough();
 
 export const TaskListResponseSchema = z.object({
