@@ -8,3 +8,4 @@ sessionB.json
 .DS_Store
 # This repo uses yarn (yarn.lock); do not commit an npm lockfile.
 package-lock.json
+.aionrs
