@@ -272,7 +272,18 @@ export const InvitationSchema = z.object({
 // ── Generic API response envelope ─────────────────────────────────────────
 
 export const ApiResponseSchema = z.object({
-  data: z.unknown().optional(),
+  // Freedcamp documents `data` as a request-specific object
+  // (api_docs/swagger.json → ApiResponse.data: {"type": "object"}). Some
+  // legacy endpoints are known to return `true` here instead (e.g. deletes),
+  // so accept that too. Do NOT loosen this back to z.unknown(): zod-to-json-
+  // schema renders that as an empty schema ({}), which MCP Inspector (and
+  // several clients) flag as an unvalidated "anything" contract.
+  data: z
+    .union([z.object({}).passthrough(), z.boolean()])
+    .optional()
+    .describe(
+      "Request-specific payload object; some legacy endpoints return `true` when there is no payload."
+    ),
   msg: z.string().optional(),
   status: z.union([z.string(), z.number()]).optional(),
 }).passthrough();
