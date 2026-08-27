@@ -62,18 +62,24 @@ export const TaskSchema = z.object({
   updated_ts: TimestampSchema,
   // Start/recurrence and hierarchy info returned by the API
   // (api_docs/swagger.json → Task response).
+  // NOTE: the swagger types these as integers, but the live API returns
+  // flags/ids/counts as strings in practice (e.g. f_archived_list: "0",
+  // cf_tpl_id: "831234") — which the SDK's output validation rejects with
+  // -32602. Keep them as string|number unions like every id/flag field above.
   start_ts: TimestampSchema,
   r_rule: z.string().nullable().optional(),
   h_parent_id: z.union([z.string(), z.number()]).nullable().optional(),
   h_top_id: z.union([z.string(), z.number()]).nullable().optional(),
-  h_level: z.number().int().nullable().optional(),
-  f_adv_subtask: z.number().int().nullable().optional(),
-  order: z.number().int().nullable().optional(),
-  comments_count: z.number().int().nullable().optional(),
-  files_count: z.number().int().nullable().optional(),
-  f_archived_list: z.number().int().nullable().optional(),
+  h_level: z.union([z.string(), z.number()]).nullable().optional(),
+  // "f_"-prefixed flags arrive as boolean true/false in some responses,
+  // as 0/1 integers in others, and as "0"/"1" strings in yet others.
+  f_adv_subtask: z.union([z.boolean(), z.string(), z.number()]).nullable().optional(),
+  order: z.union([z.string(), z.number()]).nullable().optional(),
+  comments_count: z.union([z.string(), z.number()]).nullable().optional(),
+  files_count: z.union([z.string(), z.number()]).nullable().optional(),
+  f_archived_list: z.union([z.boolean(), z.string(), z.number()]).nullable().optional(),
   url: z.string().nullable().optional(),
-  cf_tpl_id: z.number().int().nullable().optional(),
+  cf_tpl_id: z.union([z.string(), z.number()]).nullable().optional(),
   custom_fields: z
     .array(
       z.object({
