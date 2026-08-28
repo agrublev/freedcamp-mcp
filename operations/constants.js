@@ -101,6 +101,7 @@ export const filterMap = {
 	// list_status filter was sent verbatim and silently ignored by the API.
 	list_status: "lists_status",
 	order_priority: "order[priority]",
+	order_due_date: "order[due_date]",
 };
 
 export const status_ids = {
