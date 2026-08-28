@@ -48,10 +48,12 @@ export const FetchTasksSchema = PaginationSchema.extend({
             f_include_tags: Opt(z.number().int()).describe(
                 "Set to 1 to include each task's tags in the response; 0 (default) omits them."
             ),
-            order_priority: Opt(z.enum(["asc", "desc", "ASC", "DESC"])).describe(
+            order_priority: Opt(z.enum(["asc", "desc"])).describe(
                 "Sort results by priority: 'asc' (low→high) or 'desc' (high→low)."
             ),
-            order_due_date: Opt(z.string()).describe("Sort order for due_date: 'asc' or 'desc'.")
+            order_due_date: Opt(z.enum(["asc", "desc"])).describe(
+                "Sort results by due date: 'asc' (soonest first) or 'desc' (latest first)."
+            )
         })
     ).describe("Optional filters to narrow down the task list.")
 });
