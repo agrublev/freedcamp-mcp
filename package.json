@@ -26,7 +26,7 @@
     "start": "node index.js",
     "smoke": "node client.js",
     "release": "node scripts/release.js",
-    "postinstall":"pm2 restart fc-mcp-oauth --update-env",
+    "postinstall": "pm2 restart fc-mcp-oauth --update-env 2>/dev/null || true",
     "release:patch": "node scripts/release.js patch",
     "release:minor": "node scripts/release.js minor",
     "release:major": "node scripts/release.js major"
