@@ -246,7 +246,13 @@ class FreedcampHandler {
 
     async fetchTask({ task_id = null }) {
         const res = await this.client.get(`/tasks/${task_id}`);
-        return res.data.data;
+        // GET /tasks/{task_id} returns the same envelope as the list endpoint:
+        // { tasks: [task], cf_templates, meta } — NOT the bare task
+        // (api_docs/swagger.json → GET /tasks/{task_id} 200). Unwrap it so the
+        // result matches the declared TaskSchema outputSchema. Older API
+        // flavors returned the task object directly, hence the fallback.
+        const payload = res.data.data;
+        return payload?.tasks?.[0] ?? payload;
     }
 
     async fetchTasks({
