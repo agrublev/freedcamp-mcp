@@ -1,0 +1,184 @@
+/* Class-based styles for the four Freedcamp design-system widgets used by
+   the docs page (SearchInput, SegmentedControl, Badge, ThemeSwitch).
+   Values mirror the design system's inline styles exactly. */
+
+/* ── SearchInput ─────────────────────────────────────────────── */
+.ds-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 40px;
+    border-bottom: 2px solid var(--gray-250);
+    box-sizing: border-box;
+    transition: border-color var(--dur-fast) var(--ease-standard);
+    font-family: var(--font-sans);
+}
+.ds-search:focus-within {
+    border-bottom-color: var(--color-primary);
+}
+.ds-search__icon {
+    flex: none;
+    color: var(--gray-450);
+}
+.ds-search__input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 0;
+    font-family: inherit;
+    font-size: var(--fs-md);
+    color: var(--gray-600);
+}
+.ds-search__input::placeholder {
+    color: var(--gray-450);
+}
+.ds-search__clear {
+    display: inline-flex;
+    flex: none;
+    background: none;
+    border: none;
+    padding: 2px;
+    color: var(--gray-450);
+    cursor: pointer;
+}
+
+/* ── SegmentedControl ────────────────────────────────────────── */
+.ds-seg {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    font-family: var(--font-sans);
+    flex-wrap: wrap;
+}
+.ds-seg__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    min-width: 32px;
+    border: none;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: var(--fs-base);
+    font-weight: var(--fw-semibold);
+    transition: background var(--dur-fast) var(--ease-standard);
+}
+.ds-seg__btn:hover {
+    color: var(--text-secondary);
+}
+.ds-seg__btn.is-active {
+    background: var(--surface-card);
+    box-shadow: var(--shadow-xs);
+    color: var(--text-primary);
+}
+
+/* ── Badge ───────────────────────────────────────────────────── */
+.ds-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 20px;
+    padding: 0 8px;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    line-height: 1;
+    white-space: nowrap;
+    flex: none;
+}
+.ds-badge--info {
+    background: var(--blue-100);
+    color: var(--blue-700);
+}
+.ds-badge--success {
+    background: var(--green-100);
+    color: var(--green-700);
+}
+.ds-badge--danger {
+    background: var(--red-100);
+    color: var(--red-700);
+}
+
+/* ── ThemeSwitch ─────────────────────────────────────────────── */
+.ds-theme {
+    position: relative;
+    width: 64px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    flex: none;
+    background: #d9d9d9;
+    transition: background var(--dur-base) var(--ease-standard);
+}
+.ds-theme.is-dark {
+    background: var(--color-primary);
+}
+.ds-theme__knob {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    box-shadow: var(--shadow-xs);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    transition: left var(--dur-base) var(--ease-standard);
+}
+.ds-theme.is-dark .ds-theme__knob {
+    left: 36px;
+    background: #fff;
+    color: var(--color-primary);
+}
+
+/* ── Global page chrome (body-level) ─────────────────────────── */
+html {
+    scroll-behavior: smooth;
+}
+body {
+    margin: 0;
+    background: var(--surface-app);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+}
+a {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
+}
+
+/* Responsive: collapse sidebar under 900px */
+@media (max-width: 900px) {
+    .dc-17ae503f {
+        flex-direction: column;
+    }
+    .dc-c406fcea {
+        position: static;
+        width: 100%;
+        height: auto;
+        border-right: none;
+        box-shadow: inset 0 -1px 0 0 var(--border-subtle);
+    }
+    .dc-ff616e25 {
+        width: 100%;
+    }
+}

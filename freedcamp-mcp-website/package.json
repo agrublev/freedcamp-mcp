@@ -1,0 +1,26 @@
+{
+  "name": "freedcamp-mcp-website",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "SEO-friendly static documentation site for the Freedcamp MCP server. Pre-rendered at build time to fully indexable HTML pages + sitemap.xml.",
+  "scripts": {
+    "dev": "vite-react-ssg dev",
+    "build": "vite-react-ssg build && node scripts/generate-sitemap.mjs",
+    "build:no-sitemap": "vite-react-ssg build",
+    "preview": "vite preview",
+    "start": "vite-react-ssg build && node scripts/generate-sitemap.mjs && vite preview",
+    "sitemap": "node scripts/generate-sitemap.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "less": "^4.2.1",
+    "vite": "^5.4.11",
+    "vite-react-ssg": "^0.8.7"
+  }
+}
