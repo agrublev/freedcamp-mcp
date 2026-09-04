@@ -5,6 +5,7 @@ data
 logs
 session.json
 sessionB.json
+ecosystem.config.cjs
 .DS_Store
 # This repo uses yarn (yarn.lock); do not commit an npm lockfile.
 package-lock.json
