@@ -8,6 +8,30 @@ import { id_to_name, name_to_app_id, statuses } from "./constants.js";
 
 export const GetGroupsProjectsSchema = z.object({});
 
+// MCP structuredContent must be a JSON object (not a top-level array).
+export const GroupsProjectsOutputSchema = z.object({
+    groups: z.array(
+        z
+            .object({
+                name: z.string().optional(),
+                id: z.union([z.string(), z.number()]).optional(),
+                applications: z.array(z.string().nullable()).optional(),
+                projects: z
+                    .array(
+                        z
+                            .object({
+                                id: z.union([z.string(), z.number()]),
+                                project_name: z.string().optional(),
+                                applications: z.array(z.string().nullable()).optional()
+                            })
+                            .passthrough()
+                    )
+                    .optional()
+            })
+            .passthrough()
+    )
+});
+
 export const AddItemByNamesSchema = z.object({
     project_name: z.string().describe("A project name inside a project group."),
     app_name: z
@@ -33,8 +57,8 @@ export const UpdateStatusSchema = z.object({
 
 /**
  * Flattens a Freedcamp session's groups/projects/applications into a
- * human-readable tree: [{ name, id, applications: [...], projects: [{ id,
- * project_name, applications: [...] }] }].
+ * human-readable tree: { groups: [{ name, id, applications: [...],
+ * projects: [{ id, project_name, applications: [...] }] }] }.
  */
 export function getGroupsAndProjects(session) {
     const groups = [];
@@ -54,7 +78,8 @@ export function getGroupsAndProjects(session) {
         groupObj.projects = projectsAll.filter((p) => p !== undefined);
         groups.push(groupObj);
     });
-    return groups;
+    // Object wrapper: CallToolResult.structuredContent is a record, not an array.
+    return { groups };
 }
 
 /**

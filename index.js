@@ -7,6 +7,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import FreedcampHandler, { TimeActionNoopError } from "./operations/fc-handler.js";
 import { VERSION } from "./common/version.js";
 import { ApiResponseSchema, TaskSchema, TaskListResponseSchema } from "./common/types.js";
+import { ok } from "./common/tool-result.js";
 
 import * as tasks from "./operations/tasks.js";
 import * as lists from "./operations/lists.js";
@@ -529,7 +530,8 @@ const tools = [
         name: "fc_get_groups_projects",
         description:
             "Get all groups, projects, and their apps, keyed by human-readable name — the preferred first call whenever a conversation needs to list, browse, or reference projects. Call it once and reuse the result (project names/IDs, group structure, per-project apps) for the rest of the conversation instead of calling it again or falling back to fc_fetch_projects/fc_fetch_groups.",
-        schema: helpers.GetGroupsProjectsSchema
+        schema: helpers.GetGroupsProjectsSchema,
+        outputSchema: helpers.GroupsProjectsOutputSchema
     },
     {
         name: "fc_add_item_by_names",
@@ -583,11 +585,6 @@ function buildServer(fc) {
 
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const { name, arguments: args } = request.params;
-
-        const ok = (data) => ({
-            content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-            structuredContent: data
-        });
 
         try {
             switch (name) {
