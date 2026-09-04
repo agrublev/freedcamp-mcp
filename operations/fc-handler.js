@@ -122,7 +122,7 @@ class FreedcampHandler {
                     if (cfg.__retry429 <= 4) {
                         const headerWait = Number(error.response.headers?.["retry-after"]);
                         const waitMs =
-                            Number.isFinite(headerWait) && headerWait > 0
+                            Number.isFinite(headerWait) && headerWait >= 0
                                 ? headerWait * 1000
                                 : Math.min(30_000, 2_000 * 2 ** (cfg.__retry429 - 1));
                         console.error(
@@ -245,7 +245,12 @@ class FreedcampHandler {
     // ============ Tasks ============
 
     async fetchTask({ task_id = null }) {
-        const res = await this.client.get(`/tasks/${task_id}`);
+        let res;
+        try {
+            res = await this.client.get(`/tasks/${task_id}`);
+        } catch (error) {
+            throw new Error(this._describeError("GET", `/tasks/${task_id}`, error));
+        }
         // GET /tasks/{task_id} returns the same envelope as the list endpoint:
         // { tasks: [task], cf_templates, meta } — NOT the bare task
         // (api_docs/swagger.json → GET /tasks/{task_id} 200). Unwrap it so the
@@ -424,7 +429,12 @@ class FreedcampHandler {
     // ============ Lists ============
 
     async fetchLists({ project_id = null, app_id = 2 }) {
-        const res = await this.client.get(`/lists/${app_id}?project_id=${project_id}`);
+        let res;
+        try {
+            res = await this.client.get(`/lists/${app_id}?project_id=${project_id}`);
+        } catch (error) {
+            throw new Error(this._describeError("GET", `/lists/${app_id}`, error));
+        }
         return res.data.data;
     }
 
@@ -1094,7 +1104,12 @@ class FreedcampHandler {
 
     async fetchNotifications() {
         const url = `/notifications?following=1&from_ts=${moment().subtract(60, "days").format("X")}`;
-        const res = await this.client.get(url);
+        let res;
+        try {
+            res = await this.client.get(url);
+        } catch (error) {
+            throw new Error(this._describeError("GET", "/notifications", error));
+        }
         return res.data;
     }
 

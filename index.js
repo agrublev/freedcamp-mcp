@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { pathToFileURL } from "url";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -40,7 +41,11 @@ const missingCreds = [!apiKey && "FREEDCAMP_API_KEY", !apiSecret && "FREEDCAMP_A
     Boolean
 );
 
-if (!useHttpTransport && missingCreds.length) {
+// True only when index.js is run directly (npm start / npx), not when imported
+// as a module (tests import buildServer; http.js receives it via startHttpServer).
+const isMain = import.meta.url === pathToFileURL(process.argv[1] || "").href;
+
+if (isMain && !useHttpTransport && missingCreds.length) {
     console.error("=== LOGIN ERROR ===");
     console.error(`Missing required credential env var(s): ${missingCreds.join(", ")}`);
     console.error("The Freedcamp MCP server cannot authenticate without these.");
@@ -900,14 +905,18 @@ async function runHttpServer() {
     await startHttpServer({ buildServer, handlerForToken, dropHandlerForToken });
 }
 
-if (useHttpTransport) {
-    runHttpServer().catch((error) => {
-        console.error("Fatal error:", error);
-        process.exit(1);
-    });
-} else {
-    runStdioServer().catch((error) => {
-        console.error("Fatal error:", error);
-        process.exit(1);
-    });
+if (isMain) {
+    if (useHttpTransport) {
+        runHttpServer().catch((error) => {
+            console.error("Fatal error:", error);
+            process.exit(1);
+        });
+    } else {
+        runStdioServer().catch((error) => {
+            console.error("Fatal error:", error);
+            process.exit(1);
+        });
+    }
 }
+
+export { buildServer };
