@@ -1,0 +1,674 @@
+{
+  "meta": {
+    "generated_by": "Claude (claude.ai)",
+    "date": "2026-09-04",
+    "target_project_id": "3292090",
+    "target_project_name": "Awesome Simple project",
+    "note": "This compiles every safe, read-only Freedcamp MCP tool call made in this session, most scoped to project 3292090 where applicable. Mutating/destructive tools (add/edit/delete/upload) were intentionally NOT called -- see 'skipped_mutating_tools'. Some read-only single-item tools had no valid target id because project 3292090 has empty discussions/issues/milestones/times/wikis/events -- see 'not_applicable_tools'."
+  },
+  "tool_calls": [
+    {
+      "tool": "fc_fetch_project",
+      "params": {
+        "project_id": "3292090"
+      },
+      "status": "success",
+      "summary": "Project 'Awesome Simple project' (id 3292090), group 'Simple Test' (1317739), owner Angel Grablev. Users: 2, 1702649, 2123691, 2123692.",
+      "response": {
+        "project_id": "3292090",
+        "project_name": "Awesome Simple project",
+        "group_id": "1317739",
+        "group_name": "Simple Test",
+        "it_prefix": "AWE-",
+        "created_by_id": "2",
+        "created_ts": 1670298087,
+        "f_active": true,
+        "f_public": false,
+        "user_ids": [
+          "2",
+          "1702649",
+          "2123691",
+          "2123692"
+        ],
+        "applications": [
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "13",
+          "14",
+          "19",
+          "37",
+          "47",
+          "48"
+        ],
+        "note": "Full response also included the account's users[] array (80+ users) and groups[] array; omitted here for brevity, see fc_get_groups_projects entry below for full user/group listing."
+      }
+    },
+    {
+      "tool": "fc_fetch_current_session",
+      "params": {},
+      "status": "success",
+      "summary": "Full session for user_id 2 (Angel Grablev). Returns every project (40+) and group (20+) the user can access, plus permissions and workspaces.",
+      "response": {
+        "user_id": "2",
+        "notifications_count": 10,
+        "timezone_offset_minutes": 180,
+        "permissions": {
+          "f_can_create_groups": true,
+          "f_can_create_projects": true,
+          "f_can_clone_projects": true
+        },
+        "project_count": 40,
+        "group_count": 21,
+        "workspaces": [
+          {
+            "id": "2",
+            "title": "Freedcamp Official",
+            "owner_id": "2"
+          },
+          {
+            "id": "123147",
+            "title": "TADA",
+            "owner_id": "123147"
+          },
+          {
+            "id": "2143577",
+            "title": "Angel G.",
+            "owner_id": "2143577"
+          },
+          {
+            "id": "2379663",
+            "title": "Angel T.",
+            "owner_id": "2379663"
+          },
+          {
+            "id": "18849",
+            "title": "Bob D.",
+            "owner_id": "18849"
+          },
+          {
+            "id": "2385694",
+            "title": "John G.",
+            "owner_id": "2385694"
+          }
+        ],
+        "note": "Full project/group/user lists omitted here for brevity; see fc_get_groups_projects entry for the complete human-readable structure."
+      }
+    },
+    {
+      "tool": "fc_fetch_current_user",
+      "params": {},
+      "status": "success",
+      "response": {
+        "user_id": "2",
+        "full_name": "Angel Grablev",
+        "email": "agrublev@gmail.com",
+        "timezone": "Europe/Athens",
+        "location": "Santa Barbara",
+        "language": "en",
+        "phone": "8052458713",
+        "twitter_profile": "@agrublev"
+      }
+    },
+    {
+      "tool": "fc_fetch_lists",
+      "params": {
+        "project_id": "3292090",
+        "app_id": 2
+      },
+      "status": "success",
+      "response": {
+        "lists": [
+          {
+            "id": "5712342",
+            "name": "Task List",
+            "project_id": "3292090",
+            "app_id": "2",
+            "f_archived": false
+          }
+        ]
+      }
+    },
+    {
+      "tool": "fc_fetch_tasks",
+      "params": {
+        "project_id": "3292090"
+      },
+      "status": "success",
+      "response": {
+        "tasks": [
+          {
+            "id": "50176764",
+            "title": "afaf",
+            "status": 0,
+            "status_title": "No Progress",
+            "priority": 0,
+            "assigned_to_fullname": "Unassigned",
+            "task_group_id": "5712342",
+            "task_group_name": "Task List",
+            "files_count": 1,
+            "comments_count": 0,
+            "created_ts": 1671704699,
+            "url": "https://freedcamp.com/view/3292090/tasks/50176764"
+          }
+        ],
+        "meta": {
+          "has_more": false
+        }
+      }
+    },
+    {
+      "tool": "fc_fetch_task",
+      "params": {
+        "task_id": "50176764"
+      },
+      "status": "success",
+      "response": {
+        "id": "50176764",
+        "title": "afaf",
+        "description": "<p>afaafaf</p>",
+        "status": 0,
+        "comments": [],
+        "files": [
+          {
+            "id": "15434417",
+            "name": "BugHQchat.mp4",
+            "size": 1242403,
+            "file_type": "video/mp4"
+          }
+        ],
+        "followers": [
+          "2"
+        ],
+        "url": "https://freedcamp.com/view/3292090/tasks/50176764"
+      }
+    },
+    {
+      "tool": "fc_fetch_discussions",
+      "params": {
+        "project_id": "3292090"
+      },
+      "status": "success",
+      "response": {
+        "discussions": [],
+        "meta": {
+          "has_more": false
+        }
+      },
+      "superseded_by": "added_items_pass (see top-level key) -- this app is no longer empty as of the follow-up pass"
+    },
+    {
+      "tool": "fc_fetch_issues",
+      "params": {
+        "project_id": "3292090"
+      },
+      "status": "success",
+      "response": {
+        "issues": [],
+        "linked_items": [],
+        "meta": {
+          "has_more": false
+        }
+      },
+      "superseded_by": "added_items_pass (see top-level key) -- this app is no longer empty as of the follow-up pass"
+    },
+    {
+      "tool": "fc_fetch_milestones",
+      "params": {
+        "project_id": "3292090"
+      },
+      "status": "success",
+      "response": {
+        "milestones": [],
+        "meta": {
+          "has_more": false
+        }
+      },
+      "superseded_by": "added_items_pass (see top-level key) -- this app is no longer empty as of the follow-up pass"
+    },
+    {
+      "tool": "fc_fetch_times",
+      "params": {
+        "project_id": "3292090"
+      },
+      "status": "success",
+      "response": {
+        "times": [],
+        "meta": {
+          "has_more": false
+        }
+      },
+      "superseded_by": "added_items_pass (see top-level key) -- this app is no longer empty as of the follow-up pass"
+    },
+    {
+      "tool": "fc_fetch_wikis",
+      "params": {
+        "project_id": "3292090"
+      },
+      "status": "success",
+      "response": {
+        "wiki": [],
+        "meta": {
+          "has_more": false
+        }
+      },
+      "superseded_by": "added_items_pass (see top-level key) -- this app is no longer empty as of the follow-up pass"
+    },
+    {
+      "tool": "fc_fetch_events",
+      "params": {
+        "project_id": "3292090"
+      },
+      "status": "success",
+      "response": {
+        "events": []
+      },
+      "superseded_by": "added_items_pass (see top-level key) -- this app is no longer empty as of the follow-up pass"
+    },
+    {
+      "tool": "fc_fetch_calendar_items",
+      "params": {
+        "project_id": "3292090"
+      },
+      "status": "success",
+      "response": {
+        "items": {
+          "tasks": [],
+          "milestones": [],
+          "issues": [],
+          "events": []
+        },
+        "meta": {
+          "has_more": false,
+          "has_more_by_app": {
+            "2": false,
+            "4": false,
+            "13": false,
+            "19": false
+          },
+          "total_count_by_app": {
+            "2": 0,
+            "4": 0,
+            "13": 0,
+            "19": 0
+          }
+        }
+      }
+    },
+    {
+      "tool": "fc_fetch_overview",
+      "params": {
+        "project_id": "3292090"
+      },
+      "status": "success",
+      "response": {
+        "projects": [
+          {
+            "project_id": "3292090",
+            "start_ts": null,
+            "end_ts": null,
+            "managers": [],
+            "app_id": "37"
+          }
+        ],
+        "project_updates": []
+      }
+    },
+    {
+      "tool": "fc_fetch_notifications_by_project",
+      "params": {
+        "project_id": "3292090"
+      },
+      "status": "success",
+      "note": "This tool actually returned account-wide recent notifications (mostly from a different project, id 130418, and calendar app 19), not scoped to 3292090 in practice. Item titles/content truncated for brevity.",
+      "response_sample": [
+        {
+          "uid": "2_72889626",
+          "project_id": "130418",
+          "item_title": "[PUSH] Prepare token for push notifications to web UI"
+        },
+        {
+          "uid": "2_72875141",
+          "project_id": "130418",
+          "item_title": "Backend changes"
+        },
+        {
+          "uid": "19_1146729",
+          "project_id": "130418",
+          "item_title": "[KATYA] Travel to Ukraine (possible unavailability)"
+        },
+        {
+          "uid": "2_72810243",
+          "project_id": "130418",
+          "item_title": "[SUPPORT] Support onError callback in support widget"
+        },
+        {
+          "uid": "2_72871519",
+          "project_id": "130418",
+          "item_title": "[WORKSPACES] Replace using img for the logo to a modern technique of using a background image"
+        },
+        {
+          "uid": "2_72875126",
+          "project_id": "130418",
+          "item_title": "[TASKY] Due date should also allow for time as an optional selection"
+        },
+        {
+          "uid": "2_72844671",
+          "project_id": "130418",
+          "item_title": "[OAUTH] Support for API and MCP"
+        },
+        {
+          "uid": "2_72792086",
+          "project_id": "130418",
+          "item_title": "[AI][I18N] Localise assistant UI strings"
+        },
+        {
+          "uid": "3_956178",
+          "project_id": "130418",
+          "item_title": "[REACT] Quick access function"
+        },
+        {
+          "uid": "2_72471022",
+          "project_id": "130418",
+          "item_title": "Analyze & remove fields from Task form: \"Create subtasks\" and \"Create time records\""
+        },
+        {
+          "uid": "2_71201698",
+          "project_id": "130418",
+          "item_title": "[PASSWORDS] A default shared list or password automatically assigned to any user/role."
+        },
+        {
+          "uid": "14_47559",
+          "project_id": "130418",
+          "item_title": "White Label - how to set - for FC support and DevOps (large wiki page, content omitted)"
+        },
+        {
+          "uid": "19_1137182",
+          "project_id": "130418",
+          "item_title": "Day off (Katya and Dima)"
+        }
+      ]
+    },
+    {
+      "tool": "fc_fetch_cf_templates",
+      "params": {
+        "module_id": 2
+      },
+      "status": "success",
+      "note": "Account-wide custom field templates for Tasks module (not project-scoped); project 3292090 shows no cs_tpl_id / custom_fields assigned.",
+      "response": {
+        "cf_templates": [
+          {
+            "id": "38",
+            "title": "Scrum",
+            "fields": [
+              "Difficulty",
+              "Hours Estimation",
+              "Hourly Dropdown",
+              "Impact"
+            ]
+          },
+          {
+            "id": "632",
+            "title": "GitHub",
+            "fields": [
+              "separator",
+              "GitHub",
+              "Time Estimation",
+              "Priority"
+            ]
+          },
+          {
+            "id": "6276",
+            "title": "Planning",
+            "fields": [
+              "Task Lead",
+              "Time/Difficulty Estimation",
+              "User Impact",
+              "Revenue Impact",
+              "Design Needed?"
+            ]
+          },
+          {
+            "id": "14903",
+            "title": "Cost",
+            "fields": [
+              "Cost (currency, USD)"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "tool": "fc_fetch_groups",
+      "params": {},
+      "status": "success",
+      "summary": "21 groups on the account. Project 3292090 belongs to group 'Simple Test' (1317739), which contains projects 3342823, 3342822, 3292090.",
+      "response": "See fc_get_groups_projects for the full human-readable group/project mapping."
+    },
+    {
+      "tool": "fc_fetch_recent_project_ids",
+      "params": {},
+      "status": "success",
+      "response": {
+        "recent_project_ids": [
+          "3292090",
+          "3430419",
+          "130418",
+          "3768987",
+          "3132112"
+        ]
+      }
+    },
+    {
+      "tool": "fc_fetch_invitations",
+      "params": {},
+      "status": "success",
+      "response": {
+        "invitations": []
+      }
+    },
+    {
+      "tool": "fc_fetch_backups",
+      "params": {},
+      "status": "success",
+      "response": {
+        "backups": [
+          {
+            "id": "16178",
+            "date_human": "Aug 9, 2026",
+            "date": "2026-08-09 15:53:14"
+          }
+        ],
+        "meta": {
+          "has_more": false
+        }
+      }
+    },
+    {
+      "tool": "fc_fetch_wipe_current",
+      "params": {},
+      "status": "error",
+      "response": {
+        "http_code": 501,
+        "message": "This API method exists, but is not available publicly. Please contact support if you want to use it."
+      }
+    },
+    {
+      "tool": "fc_fetch_timezones",
+      "params": {},
+      "status": "success",
+      "summary": "Full IANA-style timezone list with current offsets/times (70+ entries), e.g. Europe/Athens UTC+02:00, America/Los_Angeles UTC-08:00.",
+      "response_count": 74
+    },
+    {
+      "tool": "fc_fetch_notifications",
+      "params": {},
+      "status": "success",
+      "note": "Account-wide notifications for the current user (last 60 days, following=1). Same underlying dataset as fc_fetch_notifications_by_project, all from project 130418 in this account.",
+      "response_count": 10
+    },
+    {
+      "tool": "fc_get_groups_projects",
+      "params": {},
+      "status": "not_yet_called",
+      "note": "Not called in this run to avoid duplicating fc_fetch_current_session / fc_fetch_groups data already captured above."
+    }
+  ],
+  "not_applicable_tools": [
+    "fc_fetch_discussion (no discussions exist in project 3292090)",
+    "fc_fetch_issue (no issues exist in project 3292090)",
+    "fc_fetch_milestone (no milestones exist in project 3292090)",
+    "fc_fetch_time (no time entries exist in project 3292090)",
+    "fc_fetch_wiki (no wiki pages exist in project 3292090)",
+    "fc_fetch_event (no calendar events exist in project 3292090)",
+    "fc_fetch_file (task's file id 15434417 could be fetched, but this endpoint is redundant with data already in fc_fetch_task)",
+    "fc_fetch_linked_items (no linked items on task 50176764)",
+    "fc_fetch_crm_calls / fc_fetch_crm_call / fc_fetch_crm_task / fc_fetch_crm_tasks (require a CRM group_id; project 3292090's group has no CRM data)",
+    "fc_fetch_user (would just re-fetch user_id 2, already returned by fc_fetch_current_user)",
+    "fc_fetch_users (account-wide user directory, ~85 users, same set as embedded in fc_fetch_project/fc_fetch_current_session responses)",
+    "fc_fetch_all_notifications / fc_fetch_notifications (same underlying data)",
+    "fc_fetch_projects (flat list superseded by fc_get_groups_projects/fc_fetch_current_session)"
+  ],
+  "skipped_mutating_tools": [
+    "All fc_add_*, fc_edit_*, fc_delete_*, fc_upload_*, fc_batch_edit_tasks, fc_update_*, fc_time_action, fc_respond_invitation, fc_leave_project, fc_apply_password_reset, fc_request_password_reset, fc_register_user, fc_validate_email, fc_delete_account -- skipped deliberately because they would create, modify, or delete real data in Angel's live Freedcamp account. Not exercised in this run; can be run individually on request with explicit confirmation of what will be created/changed/deleted."
+  ],
+  "added_items_pass": {
+    "note": "Per user request, one item was added to each previously-empty app in project 3292090 via fc_add_*, then each list was re-fetched to confirm. Each app turned out to already contain one earlier 'Sample X' item (created seconds before this pass, cause unclear -- possibly a retried call that succeeded despite an error response), so each app now has 2 items instead of 1.",
+    "add_calls": [
+      {
+        "tool": "fc_add_discussion",
+        "params": {
+          "project_id": "3292090",
+          "title": "Test Discussion",
+          "list_title": "General"
+        },
+        "status": "success",
+        "created_id": "1196197"
+      },
+      {
+        "tool": "fc_add_issue",
+        "params": {
+          "project_id": "3292090",
+          "title": "Test Issue"
+        },
+        "status": "success",
+        "created_id": "374007"
+      },
+      {
+        "tool": "fc_add_milestone",
+        "params": {
+          "project_id": "3292090",
+          "title": "Test Milestone",
+          "start_date": "2026-09-04",
+          "due_date": "2026-09-30"
+        },
+        "status": "success",
+        "created_id": "653132"
+      },
+      {
+        "tool": "fc_add_time",
+        "params": {
+          "project_id": "3292090",
+          "date": "2026-09-04",
+          "minutes_count": 30
+        },
+        "status": "success",
+        "created_id": "4493979"
+      },
+      {
+        "tool": "fc_add_wiki",
+        "params": {
+          "project_id": "3292090",
+          "title": "Test Wiki Page",
+          "list_title": "General"
+        },
+        "status": "success",
+        "created_id": "111852"
+      },
+      {
+        "tool": "fc_add_event",
+        "params": {
+          "project_id": "3292090",
+          "title": "Test Event",
+          "start_date": "2026-09-10",
+          "start_time": "10:00",
+          "end_date": "2026-09-10",
+          "end_time": "11:00"
+        },
+        "status": "success",
+        "created_id": "1149062"
+      }
+    ],
+    "refetch_results": {
+      "fc_fetch_discussions": [
+        {
+          "id": "1196196",
+          "title": "Sample Discussion"
+        },
+        {
+          "id": "1196197",
+          "title": "Test Discussion"
+        }
+      ],
+      "fc_fetch_issues": [
+        {
+          "id": "374006",
+          "title": "Sample Issue",
+          "number_prefixed": "AWE-1000"
+        },
+        {
+          "id": "374007",
+          "title": "Test Issue",
+          "number_prefixed": "AWE-1001"
+        }
+      ],
+      "fc_fetch_milestones": [
+        {
+          "id": "653131",
+          "title": "Sample Milestone"
+        },
+        {
+          "id": "653132",
+          "title": "Test Milestone"
+        }
+      ],
+      "fc_fetch_times": [
+        {
+          "id": "4493975",
+          "description": "Auto-created sample time entry for MCP tool testing.",
+          "minutes_count": 30
+        },
+        {
+          "id": "4493979",
+          "description": "Sample time entry for MCP tool testing.",
+          "minutes_count": 30
+        }
+      ],
+      "fc_fetch_wikis": [
+        {
+          "id": "111851",
+          "title": "Sample Wiki Page"
+        },
+        {
+          "id": "111852",
+          "title": "Test Wiki Page"
+        }
+      ],
+      "fc_fetch_events": [
+        {
+          "id": "1149061",
+          "title": "Sample Event",
+          "f_all_day": true
+        },
+        {
+          "id": "1149062",
+          "title": "Test Event",
+          "f_all_day": false
+        }
+      ]
+    }
+  }
+}
