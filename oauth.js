@@ -15,6 +15,7 @@
 // every restart).
 
 import crypto from "crypto";
+import { InvalidClientMetadataError, InvalidRequestError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import FreedcampHandler from "./operations/fc-handler.js";
 
 const ACCESS_TOKEN_BYTES = 32;
@@ -22,11 +23,17 @@ const AUTH_CODE_BYTES = 32;
 const SCRYPT_KEYLEN = 32;
 const AUTH_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
+// Redirect hosts of well-known MCP clients. Authorizing for any other web host
+// shows a prominent warning on the consent page, since dynamic client
+// registration is open and anyone can register a client with any redirect URI.
+const DEFAULT_TRUSTED_REDIRECT_HOSTS = ["claude.ai", "claude.com", "chatgpt.com", "chat.openai.com"];
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
 /**
  * OAuthServerProvider implementation backed by Freedcamp API credentials.
  */
 export class FreedcampOAuthProvider {
-    constructor({ tokenSecret } = {}) {
+    constructor({ tokenSecret, allowedRedirectHosts } = {}) {
         // Key used to encrypt tokens. A random per-boot secret is secure (and
         // means nothing decryptable is ever persisted), but invalidates all
         // tokens on restart — production deployments should set
@@ -38,9 +45,20 @@ export class FreedcampOAuthProvider {
         this._authCodes = new Map();
         // Registered OAuth clients (dynamic client registration, in-memory)
         this._clients = new Map();
+        // Optional strict mode (OAUTH_ALLOWED_REDIRECT_HOSTS): when set, web
+        // redirect URIs must point at one of these hosts. Loopback and custom
+        // URI schemes (desktop/CLI clients) are always allowed, since an
+        // attacker cannot receive a code delivered to the victim's own machine.
+        this._allowedRedirectHosts = allowedRedirectHosts?.length ? new Set(allowedRedirectHosts) : null;
+        this._trustedRedirectHosts = new Set([...DEFAULT_TRUSTED_REDIRECT_HOSTS, ...(allowedRedirectHosts || [])]);
         this.clientsStore = {
             getClient: (clientId) => this._clients.get(clientId),
             registerClient: (client) => {
+                for (const uri of client.redirect_uris || []) {
+                    if (!this._redirectAllowed(uri)) {
+                        throw new InvalidClientMetadataError(`redirect_uri not allowed: ${uri}`);
+                    }
+                }
                 const full = {
                     ...client,
                     client_id: crypto.randomUUID(),
@@ -50,6 +68,33 @@ export class FreedcampOAuthProvider {
                 return full;
             }
         };
+    }
+
+    /** Classifies a redirect URI: "local" (loopback/custom scheme), "trusted", or "unknown". */
+    _redirectKind(uri) {
+        let u;
+        try {
+            u = new URL(uri);
+        } catch {
+            return "unknown";
+        }
+        if (u.protocol !== "http:" && u.protocol !== "https:") return "local";
+        if (LOOPBACK_HOSTS.has(u.hostname)) return "local";
+        if (u.protocol === "https:" && this._trustedRedirectHosts.has(u.hostname)) return "trusted";
+        return "unknown";
+    }
+
+    _redirectAllowed(uri) {
+        if (!this._allowedRedirectHosts) return true;
+        let u;
+        try {
+            u = new URL(uri);
+        } catch {
+            return false;
+        }
+        if (u.protocol !== "http:" && u.protocol !== "https:") return true;
+        if (LOOPBACK_HOSTS.has(u.hostname)) return true;
+        return u.protocol === "https:" && this._allowedRedirectHosts.has(u.hostname);
     }
 
     _key() {
@@ -89,6 +134,17 @@ export class FreedcampOAuthProvider {
      */
     async authorize(client, params, res) {
         const { state, redirectUri, codeChallenge, scopes = [], resource } = params;
+        // Clients registered before an allowlist was configured are still in memory.
+        if (!this._redirectAllowed(redirectUri)) {
+            throw new InvalidRequestError("redirect_uri not allowed");
+        }
+        const consent = {
+            clientName: typeof client.client_name === "string" && client.client_name.trim()
+                ? client.client_name.trim().slice(0, 100)
+                : "An unnamed application",
+            redirectUri,
+            kind: this._redirectKind(redirectUri)
+        };
         const fields = {
             response_type: "code",
             client_id: client.client_id,
@@ -109,7 +165,7 @@ export class FreedcampOAuthProvider {
             const apiKey = typeof body.api_key === "string" ? body.api_key.trim() : "";
             const apiSecret = typeof body.api_secret === "string" ? body.api_secret.trim() : "";
             if (!apiKey || !apiSecret) {
-                return this._renderForm(res, hiddenInputs, "API key and secret are both required.");
+                return this._renderForm(res, hiddenInputs, consent, "API key and secret are both required.");
             }
             try {
                 await verifyFreedcampCredentials(apiKey, apiSecret);
@@ -117,6 +173,7 @@ export class FreedcampOAuthProvider {
                 return this._renderForm(
                     res,
                     hiddenInputs,
+                    consent,
                     "Those credentials were rejected by Freedcamp. Check the key and secret and try again."
                 );
             }
@@ -139,14 +196,26 @@ export class FreedcampOAuthProvider {
             return;
         }
 
-        this._renderForm(res, hiddenInputs);
+        this._renderForm(res, hiddenInputs, consent);
     }
 
-    _renderForm(res, hiddenInputs, errorMessage) {
+    _renderForm(res, hiddenInputs, consent, errorMessage) {
         // 400 (not 401) for form validation errors — this is a browser-based
         // OAuth page, and 401 would trigger WWW-Authenticate handling.
         res.status(errorMessage ? 400 : 200);
         res.setHeader("Content-Type", "text/html; charset=utf-8");
+        // Credential-entry page: never framed (clickjacking), cached, or leaked via Referer.
+        res.setHeader("X-Frame-Options", "DENY");
+        res.setHeader("Content-Security-Policy", "frame-ancestors 'none'");
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("Referrer-Policy", "no-referrer");
+        const destination = describeRedirect(consent.redirectUri);
+        const warning = consent.kind === "unknown"
+            ? `<div class="warn"><strong>Warning: unverified application.</strong> Your access will be handed to
+         <strong>${escapeHtml(destination)}</strong>, which is not a known MCP client. Only continue if you started
+         this connection yourself from an app you trust. Freedcamp will never email you a link asking for your API
+         secret.</div>`
+            : "";
         res.send(`<!doctype html>
 <html lang="en">
   <head>
@@ -161,6 +230,8 @@ export class FreedcampOAuthProvider {
       label { display: block; font-size: .85rem; font-weight: 600; margin: 1rem 0 .25rem; }
       input[type=text], input[type=password] { width: 100%; box-sizing: border-box; padding: .55rem .7rem; border: 1px solid #ccd0d5; border-radius: 8px; font-size: .95rem; }
       button { margin-top: 1.5rem; width: 100%; padding: .65rem; border: 0; border-radius: 8px; background: #2563eb; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; }
+      .client { background: #f1f5f9; border-radius: 8px; padding: .7rem .8rem; font-size: .85rem; color: #334155; margin-top: 1rem; overflow-wrap: anywhere; }
+      .warn { background: #fffbeb; border: 1px solid #f59e0b; color: #78350f; border-radius: 8px; padding: .7rem .8rem; font-size: .85rem; margin-top: 1rem; }
       .error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 8px; padding: .6rem .8rem; font-size: .85rem; margin-top: 1rem; }
     </style>
   </head>
@@ -169,6 +240,11 @@ export class FreedcampOAuthProvider {
       <h1>Connect your Freedcamp account</h1>
       <p>Enter your Freedcamp API credentials. You can find them in Freedcamp under
          <strong>Settings &rarr; API</strong>. They are used only to access the Freedcamp API on your behalf.</p>
+      <div class="client">
+        <div><strong>${escapeHtml(consent.clientName)}</strong> <em>(name provided by the application)</em> is requesting full access to your Freedcamp account.</div>
+        <div style="margin-top:.4rem">After you authorize, you will be sent to: <strong>${escapeHtml(destination)}</strong></div>
+      </div>
+      ${warning}
       ${hiddenInputs}
       <label for="api_key">API Key</label>
       <input id="api_key" name="api_key" type="text" required>
@@ -250,6 +326,19 @@ export class FreedcampOAuthProvider {
             ...(payload.resource ? { resource: new URL(payload.resource) } : {}),
             extra: { apiKey: payload.apiKey, apiSecret: payload.apiSecret }
         };
+    }
+}
+
+/** Human-readable redirect destination: the host for web URLs, otherwise the scheme. */
+function describeRedirect(uri) {
+    try {
+        const u = new URL(uri);
+        if (u.protocol === "http:" || u.protocol === "https:") {
+            return LOOPBACK_HOSTS.has(u.hostname) ? "an app on this computer (localhost)" : u.host;
+        }
+        return `an app on this device (${u.protocol}//)`;
+    } catch {
+        return String(uri);
     }
 }
 

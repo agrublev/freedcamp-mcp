@@ -29,7 +29,11 @@ export async function startHttpServer({ buildServer, handlerForToken, dropHandle
     ).replace(/\/$/, "");
 
     const provider = new FreedcampOAuthProvider({
-        tokenSecret: process.env.OAUTH_TOKEN_SECRET
+        tokenSecret: process.env.OAUTH_TOKEN_SECRET,
+        allowedRedirectHosts: (process.env.OAUTH_ALLOWED_REDIRECT_HOSTS || "")
+            .split(",")
+            .map((h) => h.trim().toLowerCase())
+            .filter(Boolean)
     });
     if (!process.env.OAUTH_TOKEN_SECRET) {
         console.error(
