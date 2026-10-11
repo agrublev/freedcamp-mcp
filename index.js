@@ -905,7 +905,12 @@ async function runStdioServer() {
 
 async function runHttpServer() {
     const { startHttpServer } = await import("./http.js");
-    await startHttpServer({ buildServer, handlerForToken, dropHandlerForToken });
+    await startHttpServer({
+        buildServer,
+        handlerForToken,
+        dropHandlerForToken,
+        handlerCount: () => httpHandlers.size
+    });
 }
 
 if (isMain) {

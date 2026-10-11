@@ -21,7 +21,17 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { FreedcampOAuthProvider } from "./oauth.js";
 
-export async function startHttpServer({ buildServer, handlerForToken, dropHandlerForToken }) {
+// Sessions with no request (and no open GET stream) for this long are closed.
+// Most clients never send DELETE /mcp, so without this, sessions accumulate
+// until the process hits its memory limit. Clients transparently re-initialize
+// after a 404 on an unknown session ID (MCP spec, Streamable HTTP §Session
+// Management), and all user state lives in the bearer token, not the session.
+const SESSION_IDLE_MS = Number(process.env.MCP_SESSION_IDLE_MS ?? 30 * 60 * 1000);
+const MAX_SESSIONS = Number(process.env.MCP_MAX_SESSIONS || 1000);
+const SWEEP_INTERVAL_MS = Number(process.env.MCP_SESSION_SWEEP_MS || 60 * 1000);
+const STATS_INTERVAL_MS = Number(process.env.MCP_STATS_INTERVAL_MS || 5 * 60 * 1000);
+
+export async function startHttpServer({ buildServer, handlerForToken, dropHandlerForToken, handlerCount }) {
     const port = Number(process.env.PORT || 3000);
     const host = process.env.HOST || "127.0.0.1";
     const publicUrl = (
@@ -75,11 +85,90 @@ export async function startHttpServer({ buildServer, handlerForToken, dropHandle
         resourceMetadataUrl
     });
 
-    // Active MCP sessions: sessionId → { transport, server, token }
+    // Active MCP sessions: sessionId → { transport, server, token, lastActivity, openStreams }
     const sessions = new Map();
 
     // Map token → Set<sessionId> to track all sessions for a user
     const tokenSessions = new Map();
+
+    // Counters since process start, logged with periodic stats.
+    const counters = { created: 0, closedByClient: 0, evictedIdle: 0, evictedCap: 0, unknownSessionId: 0 };
+
+    const forgetSession = (sid, token) => {
+        if (!sessions.delete(sid)) return false;
+        const sids = tokenSessions.get(token);
+        if (sids) {
+            sids.delete(sid);
+            if (sids.size === 0) {
+                tokenSessions.delete(token);
+                dropHandlerForToken(token);
+            }
+        }
+        return true;
+    };
+
+    const evictSession = (sid, reason) => {
+        const session = sessions.get(sid);
+        if (!session || !forgetSession(sid, session.token)) return;
+        counters[reason]++;
+        session.transport.close().catch(() => {});
+        session.server.close().catch(() => {});
+    };
+
+    const touch = (session) => {
+        session.lastActivity = Date.now();
+    };
+
+    const sweepSessions = () => {
+        const now = Date.now();
+        if (SESSION_IDLE_MS > 0) {
+            for (const [sid, session] of sessions) {
+                if (session.openStreams === 0 && now - session.lastActivity > SESSION_IDLE_MS) {
+                    evictSession(sid, "evictedIdle");
+                }
+            }
+        }
+        if (sessions.size > MAX_SESSIONS) {
+            const oldest = [...sessions.entries()].sort((a, b) => a[1].lastActivity - b[1].lastActivity);
+            for (const [sid] of oldest.slice(0, sessions.size - MAX_SESSIONS)) evictSession(sid, "evictedCap");
+        }
+        provider.pruneExpiredCodes();
+    };
+    setInterval(sweepSessions, SWEEP_INTERVAL_MS).unref();
+
+    // One JSON line per interval to correlate session counts with memory use.
+    const logStats = () => {
+        const mem = process.memoryUsage();
+        let oldestIdleS = 0;
+        for (const session of sessions.values()) {
+            oldestIdleS = Math.max(oldestIdleS, Math.round((Date.now() - session.lastActivity) / 1000));
+        }
+        console.error(
+            "[stats] " +
+                JSON.stringify({
+                    sessions: sessions.size,
+                    users: tokenSessions.size,
+                    handlers: handlerCount ? handlerCount() : undefined,
+                    oauthClients: provider.clientCount(),
+                    pendingCodes: provider.pendingCodeCount(),
+                    oldestIdleS,
+                    ...counters,
+                    rssMB: Math.round(mem.rss / 1048576),
+                    heapUsedMB: Math.round(mem.heapUsed / 1048576),
+                    uptimeS: Math.round(process.uptime())
+                })
+        );
+    };
+    setInterval(logStats, STATS_INTERVAL_MS).unref();
+
+    const unknownSession = (res) => {
+        counters.unknownSessionId++;
+        res.status(404).json({
+            jsonrpc: "2.0",
+            error: { code: -32001, message: "Session not found" },
+            id: null
+        });
+    };
 
     const getHandler = async (token, auth) => {
         const fc = handlerForToken(token);
@@ -98,7 +187,10 @@ export async function startHttpServer({ buildServer, handlerForToken, dropHandle
         const sessionId = req.headers["mcp-session-id"];
         try {
             let session;
-            if (sessionId && sessions.has(sessionId)) {
+            if (sessionId && !sessions.has(sessionId)) {
+                unknownSession(res);
+                return;
+            } else if (sessionId) {
                 session = sessions.get(sessionId);
                 // Verify that this session belongs to the authenticated token
                 if (session.token !== token) {
@@ -119,7 +211,8 @@ export async function startHttpServer({ buildServer, handlerForToken, dropHandle
                     sessionIdGenerator: () => crypto.randomUUID(),
                     enableJsonResponse: true,
                     onsessioninitialized: (sid) => {
-                        sessions.set(sid, { transport, server, token });
+                        counters.created++;
+                        sessions.set(sid, { transport, server, token, lastActivity: Date.now(), openStreams: 0 });
                         let sids = tokenSessions.get(token);
                         if (!sids) {
                             sids = new Set();
@@ -128,15 +221,7 @@ export async function startHttpServer({ buildServer, handlerForToken, dropHandle
                         sids.add(sid);
                     },
                     onsessionclosed: (sid) => {
-                        sessions.delete(sid);
-                        const sids = tokenSessions.get(token);
-                        if (sids) {
-                            sids.delete(sid);
-                            if (sids.size === 0) {
-                                tokenSessions.delete(token);
-                                dropHandlerForToken(token);
-                            }
-                        }
+                        if (forgetSession(sid, token)) counters.closedByClient++;
                     }
                 });
                 const server = buildServer(fc);
@@ -155,6 +240,7 @@ export async function startHttpServer({ buildServer, handlerForToken, dropHandle
                 return;
             }
 
+            touch(session);
             await session.transport.handleRequest(req, res, req.body);
         } catch (error) {
             console.error("[http] MCP request failed:", error);
@@ -167,20 +253,37 @@ export async function startHttpServer({ buildServer, handlerForToken, dropHandle
     app.get("/mcp", bearerAuth, async (req, res) => {
         const token = req.auth.token;
         const sessionId = req.headers["mcp-session-id"];
-        const session = sessionId ? sessions.get(sessionId) : null;
-        if (!session || session.token !== token) {
-            res.status(400).send("Invalid or missing session ID");
+        if (!sessionId) {
+            res.status(400).send("Missing session ID");
             return;
         }
+        const session = sessions.get(sessionId);
+        if (!session) return unknownSession(res);
+        if (session.token !== token) {
+            res.status(403).send("Session belongs to a different user");
+            return;
+        }
+        // An open GET stream keeps the session alive; activity resumes from when it closes.
+        touch(session);
+        session.openStreams++;
+        res.on("close", () => {
+            session.openStreams--;
+            touch(session);
+        });
         await session.transport.handleRequest(req, res);
     });
 
     app.delete("/mcp", bearerAuth, async (req, res) => {
         const token = req.auth.token;
         const sessionId = req.headers["mcp-session-id"];
-        const session = sessionId ? sessions.get(sessionId) : null;
-        if (!session || session.token !== token) {
-            res.status(400).send("Invalid or missing session ID");
+        if (!sessionId) {
+            res.status(400).send("Missing session ID");
+            return;
+        }
+        const session = sessions.get(sessionId);
+        if (!session) return unknownSession(res);
+        if (session.token !== token) {
+            res.status(403).send("Session belongs to a different user");
             return;
         }
         await session.transport.handleRequest(req, res);
@@ -188,13 +291,13 @@ export async function startHttpServer({ buildServer, handlerForToken, dropHandle
 
     app.get("/healthz", (_req, res) => res.json({ ok: true }));
 
-    await new Promise((resolve, reject) => {
+    return await new Promise((resolve, reject) => {
         const listener = app.listen(port, host, () => {
             console.error(`Freedcamp MCP Server (HTTP + OAuth) listening on http://${host}:${port}`);
             console.error(`  MCP endpoint:      ${publicUrl}/mcp`);
             console.error(`  OAuth metadata:    ${publicUrl}/.well-known/oauth-authorization-server`);
             console.error(`  Authorization URL: ${publicUrl}/authorize`);
-            resolve();
+            resolve(listener);
         });
         listener.on("error", reject);
     });

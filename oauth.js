@@ -97,6 +97,22 @@ export class FreedcampOAuthProvider {
         return u.protocol === "https:" && this._allowedRedirectHosts.has(u.hostname);
     }
 
+    /** Drops authorization codes that were issued but never exchanged. */
+    pruneExpiredCodes() {
+        const now = Date.now();
+        for (const [code, entry] of this._authCodes) {
+            if (entry.expiresAt < now) this._authCodes.delete(code);
+        }
+    }
+
+    clientCount() {
+        return this._clients.size;
+    }
+
+    pendingCodeCount() {
+        return this._authCodes.size;
+    }
+
     _key() {
         if (!this._encryptionKey) {
             this._encryptionKey = crypto.scryptSync(this._tokenSecret, "freedcamp-mcp-oauth", SCRYPT_KEYLEN);
