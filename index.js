@@ -41,9 +41,12 @@ const missingCreds = [!apiKey && "FREEDCAMP_API_KEY", !apiSecret && "FREEDCAMP_A
     Boolean
 );
 
-// True only when index.js is run directly (npm start / npx), not when imported
-// as a module (tests import buildServer; http.js receives it via startHttpServer).
-const isMain = import.meta.url === pathToFileURL(process.argv[1] || "").href;
+// True only when index.js is run directly (npm start / npx / PM2), not when
+// imported as a module (tests import buildServer; http.js receives it via
+// startHttpServer). PM2 fork mode loads the script through its own wrapper, so
+// process.argv[1] is PM2's loader there; pm_exec_path is the real entrypoint.
+const entryPath = process.env.pm_exec_path || process.argv[1] || "";
+const isMain = import.meta.url === pathToFileURL(entryPath).href;
 
 if (isMain && !useHttpTransport && missingCreds.length) {
     console.error("=== LOGIN ERROR ===");
