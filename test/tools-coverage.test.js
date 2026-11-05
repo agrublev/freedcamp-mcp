@@ -90,6 +90,7 @@ describe("input rejection", () => {
         { tool: "fc_add_task", args: { project_id: "77" } }, // missing title
         { tool: "fc_delete_task", args: {} },
         { tool: "fc_add_time", args: { project_id: "77", date: "2026-01-01" } }, // missing minutes_count
+        { tool: "fc_add_time", args: { project_id: "77", date: "2026-01-01", minutes_count: 30, link_item_id: "t42" } }, // link_item_id without link_app_id
         { tool: "fc_time_action", args: { time_id: "t1", action: "bogus" } }, // invalid enum
         { tool: "fc_batch_edit_tasks", args: { batch_ids: [] } }, // min(1)
         { tool: "fc_register_user", args: { email: "not-an-email", password: "x", first_name: "A", last_name: "B" } },
