@@ -67,6 +67,19 @@ export async function startHttpServer({ buildServer, handlerForToken, dropHandle
         res.redirect(308, resourceMetadataUrl)
     );
 
+    // Accept unknown client_ids at /authorize (stale registrations cached by
+    // MCP clients) rather than failing with invalid_client. See adoptClient.
+    app.all("/authorize", express.urlencoded({ extended: false }), async (req, res, next) => {
+        const params = req.method === "POST" ? { ...req.query, ...req.body } : req.query;
+        const { client_id: clientId, redirect_uri: redirectUri } = params;
+        if (typeof clientId === "string" && !(await provider.clientsStore.getClient(clientId))) {
+            if (provider.adoptClient(clientId, redirectUri)) {
+                console.error(`[oauth] adopted unknown client_id ${clientId.slice(0, 24)}… for ${redirectUri}`);
+            }
+        }
+        next();
+    });
+
     // OAuth authorization server endpoints (metadata, /authorize, /token, /register).
     app.use(
         mcpAuthRouter({
@@ -150,6 +163,7 @@ export async function startHttpServer({ buildServer, handlerForToken, dropHandle
                     users: tokenSessions.size,
                     handlers: handlerCount ? handlerCount() : undefined,
                     oauthClients: provider.clientCount(),
+                    oauthAdoptedClients: provider.adoptedClientCount(),
                     pendingCodes: provider.pendingCodeCount(),
                     oldestIdleS,
                     ...counters,

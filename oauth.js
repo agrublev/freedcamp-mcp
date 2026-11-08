@@ -15,13 +15,18 @@
 // every restart).
 
 import crypto from "crypto";
-import { InvalidClientMetadataError, InvalidRequestError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
+import { InvalidClientMetadataError, InvalidGrantError, InvalidRequestError, InvalidTokenError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import FreedcampHandler from "./operations/fc-handler.js";
 
 const ACCESS_TOKEN_BYTES = 32;
 const AUTH_CODE_BYTES = 32;
 const SCRYPT_KEYLEN = 32;
 const AUTH_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const CLIENT_ID_PREFIX = "fc1.";
+// Upper bound on in-memory "adopted" clients (see adoptClient) so that
+// requests with random client_ids cannot grow memory without limit.
+const MAX_ADOPTED_CLIENTS = 1000;
+const ADOPTABLE_CLIENT_ID = /^[\x21-\x7e]{1,256}$/;
 
 // Redirect hosts of well-known MCP clients. Authorizing for any other web host
 // shows a prominent warning on the consent page, since dynamic client
@@ -43,8 +48,13 @@ export class FreedcampOAuthProvider {
         // Pending authorization codes: code → { clientId, codeChallenge,
         // redirectUri, resource, scopes, credentials, expiresAt }
         this._authCodes = new Map();
-        // Registered OAuth clients (dynamic client registration, in-memory)
+        // Cache of registered OAuth clients. The client_id itself is the
+        // encrypted registration (see _decodeClientId), so clients survive
+        // restarts and this map is only a lookup cache.
         this._clients = new Map();
+        // Unknown client_ids seen at /authorize, accepted as public clients
+        // (see adoptClient): client_id → client.
+        this._adoptedClients = new Map();
         // Optional strict mode (OAUTH_ALLOWED_REDIRECT_HOSTS): when set, web
         // redirect URIs must point at one of these hosts. Loopback and custom
         // URI schemes (desktop/CLI clients) are always allowed, since an
@@ -52,22 +62,61 @@ export class FreedcampOAuthProvider {
         this._allowedRedirectHosts = allowedRedirectHosts?.length ? new Set(allowedRedirectHosts) : null;
         this._trustedRedirectHosts = new Set([...DEFAULT_TRUSTED_REDIRECT_HOSTS, ...(allowedRedirectHosts || [])]);
         this.clientsStore = {
-            getClient: (clientId) => this._clients.get(clientId),
+            getClient: (clientId) =>
+                this._clients.get(clientId) || this._adoptedClients.get(clientId) || this._decodeClientId(clientId),
             registerClient: (client) => {
                 for (const uri of client.redirect_uris || []) {
                     if (!this._redirectAllowed(uri)) {
                         throw new InvalidClientMetadataError(`redirect_uri not allowed: ${uri}`);
                     }
                 }
+                const { client_id: _ignored, ...metadata } = client;
+                metadata.client_id_issued_at = Math.floor(Date.now() / 1000);
                 const full = {
-                    ...client,
-                    client_id: crypto.randomUUID(),
-                    client_id_issued_at: Math.floor(Date.now() / 1000)
+                    ...metadata,
+                    client_id: CLIENT_ID_PREFIX + this._encrypt({ typ: "client", client: metadata })
                 };
                 this._clients.set(full.client_id, full);
                 return full;
             }
         };
+    }
+
+    /**
+     * Accepts an unknown client_id at /authorize instead of failing with
+     * invalid_client. Clients cache their registration indefinitely, so ids
+     * from an older server version, a rotated OAUTH_TOKEN_SECRET, or another
+     * deployment would otherwise lock users out until they clear the client's
+     * stored credentials by hand.
+     *
+     * This grants nothing beyond what open dynamic client registration already
+     * allows: the client is public (no secret, PKCE required), the redirect URI
+     * must pass the same checks as at /register, and the consent page still
+     * shows where the code will be sent. Returns undefined if not adoptable.
+     */
+    adoptClient(clientId, redirectUri) {
+        if (typeof clientId !== "string" || !ADOPTABLE_CLIENT_ID.test(clientId)) return undefined;
+        if (typeof redirectUri !== "string" || !URL.canParse(redirectUri)) return undefined;
+        if (!this._redirectAllowed(redirectUri)) return undefined;
+        if (this.clientsStore.getClient(clientId) && !this._adoptedClients.has(clientId)) return undefined;
+
+        const existing = this._adoptedClients.get(clientId);
+        const client = {
+            client_id: clientId,
+            client_name: "An unregistered application",
+            redirect_uris: [...new Set([...(existing?.redirect_uris || []), redirectUri])].slice(-10),
+            token_endpoint_auth_method: "none",
+            grant_types: ["authorization_code"],
+            response_types: ["code"],
+            client_id_issued_at: existing?.client_id_issued_at ?? Math.floor(Date.now() / 1000)
+        };
+        // Re-insert so Map order tracks recency, then evict the oldest.
+        this._adoptedClients.delete(clientId);
+        this._adoptedClients.set(clientId, client);
+        while (this._adoptedClients.size > MAX_ADOPTED_CLIENTS) {
+            this._adoptedClients.delete(this._adoptedClients.keys().next().value);
+        }
+        return client;
     }
 
     /** Classifies a redirect URI: "local" (loopback/custom scheme), "trusted", or "unknown". */
@@ -109,6 +158,10 @@ export class FreedcampOAuthProvider {
         return this._clients.size;
     }
 
+    adoptedClientCount() {
+        return this._adoptedClients.size;
+    }
+
     pendingCodeCount() {
         return this._authCodes.size;
     }
@@ -127,6 +180,21 @@ export class FreedcampOAuthProvider {
         const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
         const tag = cipher.getAuthTag();
         return Buffer.concat([iv, tag, encrypted]).toString("base64url");
+    }
+
+    /** Recovers a client registration from its stateless client_id, or undefined. */
+    _decodeClientId(clientId) {
+        if (typeof clientId !== "string" || !clientId.startsWith(CLIENT_ID_PREFIX)) return undefined;
+        let payload;
+        try {
+            payload = this._decrypt(clientId.slice(CLIENT_ID_PREFIX.length));
+        } catch {
+            return undefined;
+        }
+        if (payload?.typ !== "client" || !payload.client) return undefined;
+        const full = { ...payload.client, client_id: clientId };
+        this._clients.set(clientId, full);
+        return full;
     }
 
     _decrypt(token) {
@@ -289,7 +357,7 @@ export class FreedcampOAuthProvider {
         // exchangeAuthorizationCode below.
         const entry = this._authCodes.get(authorizationCode);
         if (!entry || entry.expiresAt < Date.now()) {
-            throw new Error("Invalid authorization code");
+            throw new InvalidGrantError("Invalid or expired authorization code");
         }
         return entry.codeChallenge;
     }
@@ -297,10 +365,10 @@ export class FreedcampOAuthProvider {
     async exchangeAuthorizationCode(client, authorizationCode, _codeVerifier, redirectUri, resource) {
         const entry = this._takeCode(authorizationCode);
         if (!entry || entry.clientId !== client.client_id) {
-            throw new Error("Invalid authorization code");
+            throw new InvalidGrantError("Invalid or expired authorization code");
         }
         if (redirectUri && entry.redirectUri && redirectUri !== entry.redirectUri) {
-            throw new Error("redirect_uri does not match the authorization request");
+            throw new InvalidGrantError("redirect_uri does not match the authorization request");
         }
         const expiresAt = Math.floor(Date.now() / 1000) + 30 * 24 * 3600; // 30 days
         const tokenPayload = {
@@ -326,13 +394,13 @@ export class FreedcampOAuthProvider {
         try {
             payload = this._decrypt(token);
         } catch {
-            throw new Error("Invalid access token");
+            throw new InvalidTokenError("Invalid access token");
         }
         if (!payload || !payload.apiKey || !payload.apiSecret) {
-            throw new Error("Invalid access token");
+            throw new InvalidTokenError("Invalid access token");
         }
         if (payload.exp && payload.exp * 1000 < Date.now()) {
-            throw new Error("Access token expired");
+            throw new InvalidTokenError("Access token expired");
         }
         return {
             token,
