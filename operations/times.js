@@ -27,7 +27,18 @@ export const AddTimeSchema = z.object({
     f_started: Opt(BoolFlag).describe(
         "Set to 1 (or true) to create this entry as a running timer (started, not yet stopped)."
     ),
-    f_billed: Opt(BoolFlag).describe("Set to 1 (or true) to mark this time entry as billed.")
+    f_billed: Opt(BoolFlag).describe("Set to 1 (or true) to mark this time entry as billed."),
+    link_item_id: Opt(z.string()).describe(
+        "ID of the item to link this time entry to (e.g. a task ID), so the time shows up on " +
+            "that item. Use together with link_app_id."
+    ),
+    link_app_id: Opt(z.string()).describe(
+        "App ID of the linked item: '2' = Tasks, '13' = Issue Tracker. Required when " +
+            "link_item_id is set."
+    )
+}).refine((v) => !v.link_item_id || !!v.link_app_id, {
+    message: "link_app_id is required when link_item_id is set (e.g. '2' for a task).",
+    path: ["link_app_id"]
 });
 
 export const EditTimeSchema = z.object({

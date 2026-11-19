@@ -868,7 +868,9 @@ class FreedcampHandler {
         date,
         minutes_count,
         f_started,
-        f_billed
+        f_billed,
+        link_app_id,
+        link_item_id
     }) {
         // The Freedcamp API rejects time entries without assigned_to_id. Time is logged
         // as the authenticated user unless the caller explicitly logs it for someone else,
@@ -900,7 +902,9 @@ class FreedcampHandler {
                 date,
                 minutes_count,
                 f_started,
-                f_billed
+                f_billed,
+                link_app_id,
+                link_item_id
             }
         });
         // The API can return 200 OK yet ignore f_started (the entry comes back with

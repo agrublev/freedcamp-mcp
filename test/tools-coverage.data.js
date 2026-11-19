@@ -447,6 +447,14 @@ export const COVERAGE = [
         respond: { data: { time: { id: "t2", started_ts: 1700000123, status: 0 } }, msg: "OK", status: "success" }
     },
     {
+        tool: "fc_add_time",
+        args: { project_id: "77", date: "2026-01-01", minutes_count: 45, assigned_to_id: "111", link_app_id: "2", link_item_id: "t42" },
+        method: "POST",
+        path: "/times",
+        // time entry linked to a task (shows up on the task in Freedcamp)
+        body: { project_id: "77", date: "2026-01-01", minutes_count: 45, assigned_to_id: "111", link_app_id: "2", link_item_id: "t42" }
+    },
+    {
         tool: "fc_edit_time",
         args: { time_id: "t1", minutes_count: 90 },
         method: "POST",
