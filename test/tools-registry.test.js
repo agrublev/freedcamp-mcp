@@ -198,10 +198,41 @@ describe("registry quality", () => {
         }
     });
 
-    test("annotations: fetch/validate are readOnly, delete are destructive", () => {
+    test("every tool has a readable title, mirrored in annotations.title", () => {
+        for (const tool of toolList) {
+            assert.match(tool.title ?? "", /^[A-Z][^_]*$/, `${tool.name}: title`);
+            assert.equal(tool.annotations?.title, tool.title, `${tool.name}: annotations.title`);
+        }
+    });
+
+    test("titles are unique across the registry", () => {
+        const titles = toolList.map((t) => t.title);
+        const duplicates = titles.filter((title, i) => titles.indexOf(title) !== i);
+        assert.deepEqual(duplicates, []);
+    });
+
+    test("titles: derived from the tool name, with word replacements and overrides", () => {
+        const titleOf = (name) => toolList.find((t) => t.name === name)?.title;
+        // derived from fc_<verb>_<entity>
+        assert.equal(titleOf("fc_fetch_task"), "Fetch task");
+        assert.equal(titleOf("fc_fetch_notifications_by_project"), "Fetch notifications by project");
+        // word replacements
+        assert.equal(titleOf("fc_fetch_crm_calls"), "Fetch CRM calls");
+        assert.equal(titleOf("fc_add_cf_template"), "Add custom field template");
+        assert.equal(titleOf("fc_fetch_recent_project_ids"), "Fetch recent project IDs");
+        assert.equal(titleOf("fc_fetch_times"), "Fetch time entries");
+        assert.equal(titleOf("fc_add_file_meta"), "Add file metadata");
+        // explicit overrides where the derived title reads badly
+        assert.equal(titleOf("fc_time_action"), "Start, stop, bill or unbill time");
+        assert.equal(titleOf("fc_get_groups_projects"), "Get groups and projects");
+        assert.equal(titleOf("fc_update_notification_read"), "Mark notification as read");
+        assert.equal(titleOf("fc_respond_invitation"), "Respond to invitation");
+    });
+
+    test("annotations: fetch/get/validate are readOnly, delete are destructive", () => {
         for (const tool of toolList) {
             const a = tool.annotations;
-            if (/^fc_(fetch|validate)_/.test(tool.name)) {
+            if (/^fc_(fetch|get|validate)_/.test(tool.name)) {
                 assert.equal(a.readOnlyHint, true, tool.name);
                 assert.equal(a.destructiveHint, false, tool.name);
             }

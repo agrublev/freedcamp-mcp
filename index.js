@@ -78,14 +78,36 @@ function dropHandlerForToken(token) {
 
 // ── Tool annotations ───────────────────────────────────────────────────────
 // Derived from naming convention rather than repeated per tool: every
-// "fc_fetch_*"/"fc_validate_*" tool is a read-only GET; every "fc_delete_*"
+// "fc_fetch_*"/"fc_get_*"/"fc_validate_*" tool only reads; every "fc_delete_*"
 // tool (plus fc_leave_project) is destructive; reads, deletes, and
 // edits/updates are idempotent. Every tool calls the external Freedcamp API.
 function inferAnnotations(name) {
-    const readOnlyHint = /^fc_(fetch|validate)_/.test(name);
+    const readOnlyHint = /^fc_(fetch|get|validate)_/.test(name);
     const destructiveHint = /^fc_delete_/.test(name) || name === "fc_leave_project";
     const idempotentHint = readOnlyHint || destructiveHint || /^fc_(edit|update)_/.test(name);
     return { readOnlyHint, destructiveHint, idempotentHint, openWorldHint: true };
+}
+
+// ── Tool titles ────────────────────────────────────────────────────────────
+// Human-readable display name, derived from the fc_<verb>_<entity> naming
+// convention ("fc_fetch_crm_calls" → "Fetch CRM calls"). A registry entry sets
+// its own `title` only where the derived one reads badly.
+const TITLE_WORDS = {
+    cf: "custom field",
+    crm: "CRM",
+    ids: "IDs",
+    meta: "metadata",
+    time: "time entry",
+    times: "time entries"
+};
+
+function inferTitle(name) {
+    const text = name
+        .replace(/^fc_/, "")
+        .split("_")
+        .map((word) => TITLE_WORDS[word] ?? word)
+        .join(" ");
+    return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 // zod-to-json-schema merges primitive unions into JSON Schema `type` arrays,
@@ -285,6 +307,7 @@ const tools = [
     { name: "fc_delete_time", description: "Delete a time entry", schema: times.DeleteTimeSchema },
     {
         name: "fc_time_action",
+        title: "Start, stop, bill or unbill time",
         description: "Perform a time action (start/stop/bill/unbill)",
         schema: times.TimeActionSchema
     },
@@ -439,6 +462,7 @@ const tools = [
     },
     {
         name: "fc_update_notification_read",
+        title: "Mark notification as read",
         description: "Mark a notification as read",
         schema: notifications.UpdateNotificationReadSchema
     },
@@ -512,6 +536,7 @@ const tools = [
     { name: "fc_fetch_invitations", description: "List pending invitations", schema: z.object({}) },
     {
         name: "fc_respond_invitation",
+        title: "Respond to invitation",
         description: "Respond to an invitation",
         schema: misc.RespondInvitationSchema
     },
@@ -532,10 +557,16 @@ const tools = [
     },
     { name: "fc_fetch_timezones", description: "List available timezones", schema: z.object({}) },
     { name: "fc_fetch_backups", description: "List account backups", schema: z.object({}) },
-    { name: "fc_fetch_wipe_current", description: "Get wipe current info", schema: z.object({}) },
+    {
+        name: "fc_fetch_wipe_current",
+        title: "Fetch account wipe info",
+        description: "Get wipe current info",
+        schema: z.object({})
+    },
     // Helpers (human-readable-name convenience wrappers)
     {
         name: "fc_get_groups_projects",
+        title: "Get groups and projects",
         description:
             "Get all groups, projects, and their apps, keyed by human-readable name — the preferred first call whenever a conversation needs to list, browse, or reference projects. Call it once and reuse the result (project names/IDs, group structure, per-project apps) for the rest of the conversation instead of calling it again or falling back to fc_fetch_projects/fc_fetch_groups.",
         schema: helpers.GetGroupsProjectsSchema,
@@ -582,12 +613,15 @@ function buildServer(fc) {
     );
 
     server.setRequestHandler(ListToolsRequestSchema, async () => ({
-        tools: tools.map(({ name, description, schema, outputSchema }) => ({
+        // `title` is sent both top-level (current spec) and in annotations
+        // (older clients and directory checks read it there).
+        tools: tools.map(({ name, title = inferTitle(name), description, schema, outputSchema }) => ({
             name,
+            title,
             description,
             inputSchema: toolInputSchema(schema),
             outputSchema: toolOutputSchema(outputSchema),
-            annotations: inferAnnotations(name)
+            annotations: { title, ...inferAnnotations(name) }
         }))
     }));
 
