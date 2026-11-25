@@ -239,7 +239,9 @@ class FreedcampHandler {
         };
         const hint =
             hints[status] || (status >= 500 ? "Freedcamp server error — retry later" : null);
-        return `${method} ${url} failed${status ? ` (HTTP ${status})` : ""}: ${apiMsg}${hint ? ` (${hint})` : ""}`;
+        return `${method} ${url} failed${status ? ` (HTTP ${status})` : ""}: ${apiMsg}${
+            hint ? ` (${hint})` : ""
+        }`;
     }
 
     // ============ Tasks ============
@@ -973,51 +975,61 @@ class FreedcampHandler {
         const status = (e) => (e == null ? NaN : Number(e.status));
 
         switch (action) {
-        case "start":
-            if (before && isStarted(before)) {
-                return "Timer was already running before 'start' (started_ts was already set), " +
-                    "so nothing changed.";
-            }
-            if (!after) {
-                return "Timer start could not be confirmed: the 'start' action response did not " +
-                    "include the time entry, so started_ts cannot be verified. This appears to " +
-                    "be a Freedcamp API issue, not something the caller can fix.";
-            }
-            if (!isStarted(after)) {
-                return "Timer did not start: started_ts is still null after the 'start' action. " +
-                    "The entry may be billed or in a state that cannot be started.";
-            }
-            return null;
-        case "stop":
-            if (before && !isStarted(before)) {
-                return "Timer was not running before 'stop' (started_ts was already null), " +
-                    "so nothing changed.";
-            }
-            if (after && isStarted(after)) {
-                return "Timer did not stop: started_ts is still set after the 'stop' action.";
-            }
-            return null;
-        case "bill":
-            if (before && status(before) === 1) {
-                return "Entry was already billed before 'bill' (status 1), so nothing changed.";
-            }
-            if (after && status(after) !== 1) {
-                return `Entry was not marked billed: status is ${after.status} (expected 1).`;
-            }
-            return null;
-        case "unbill":
-            // unbill is a no-op on any entry that is not currently billed (status !== 1),
-            // not just status 2 (e.g. status 0 not-started is already "unbilled").
-            if (before && status(before) !== 1) {
-                return `Entry was not billed before 'unbill' (status ${before.status}), ` +
-                    "so nothing changed.";
-            }
-            if (after && status(after) !== 2) {
-                return `Entry was not moved back to in-progress: status is ${after.status} (expected 2).`;
-            }
-            return null;
-        default:
-            return null;
+            case "start":
+                if (before && isStarted(before)) {
+                    return (
+                        "Timer was already running before 'start' (started_ts was already set), " +
+                        "so nothing changed."
+                    );
+                }
+                if (!after) {
+                    return (
+                        "Timer start could not be confirmed: the 'start' action response did not " +
+                        "include the time entry, so started_ts cannot be verified. This appears to " +
+                        "be a Freedcamp API issue, not something the caller can fix."
+                    );
+                }
+                if (!isStarted(after)) {
+                    return (
+                        "Timer did not start: started_ts is still null after the 'start' action. " +
+                        "The entry may be billed or in a state that cannot be started."
+                    );
+                }
+                return null;
+            case "stop":
+                if (before && !isStarted(before)) {
+                    return (
+                        "Timer was not running before 'stop' (started_ts was already null), " +
+                        "so nothing changed."
+                    );
+                }
+                if (after && isStarted(after)) {
+                    return "Timer did not stop: started_ts is still set after the 'stop' action.";
+                }
+                return null;
+            case "bill":
+                if (before && status(before) === 1) {
+                    return "Entry was already billed before 'bill' (status 1), so nothing changed.";
+                }
+                if (after && status(after) !== 1) {
+                    return `Entry was not marked billed: status is ${after.status} (expected 1).`;
+                }
+                return null;
+            case "unbill":
+                // unbill is a no-op on any entry that is not currently billed (status !== 1),
+                // not just status 2 (e.g. status 0 not-started is already "unbilled").
+                if (before && status(before) !== 1) {
+                    return (
+                        `Entry was not billed before 'unbill' (status ${before.status}), ` +
+                        "so nothing changed."
+                    );
+                }
+                if (after && status(after) !== 2) {
+                    return `Entry was not moved back to in-progress: status is ${after.status} (expected 2).`;
+                }
+                return null;
+            default:
+                return null;
         }
     }
 
@@ -1103,7 +1115,9 @@ class FreedcampHandler {
     // ============ Notifications ============
 
     async fetchNotifications() {
-        const url = `/notifications?following=1&from_ts=${moment().subtract(60, "days").format("X")}`;
+        const url = `/notifications?following=1&from_ts=${moment()
+            .subtract(60, "days")
+            .format("X")}`;
         let res;
         try {
             res = await this.client.get(url);
@@ -1164,7 +1178,9 @@ class FreedcampHandler {
         todo_view_type,
         usage_type,
         group_id,
-        group_name
+        group_name,
+        app_ids,
+        changed_users
     }) {
         return this.request("POST", "/projects", {
             data: {
@@ -1174,7 +1190,9 @@ class FreedcampHandler {
                 todo_view_type,
                 usage_type,
                 group_id,
-                group_name
+                group_name,
+                app_ids,
+                changed_users
             }
         });
     }
@@ -1221,7 +1239,15 @@ class FreedcampHandler {
         });
     }
 
-    async editCfTemplate({ cft_id, title, module_id, owner_id, fields, deleted_field_ids, f_archived }) {
+    async editCfTemplate({
+        cft_id,
+        title,
+        module_id,
+        owner_id,
+        fields,
+        deleted_field_ids,
+        f_archived
+    }) {
         return this.request("POST", `/cf_templates/${cft_id}`, {
             data: { title, module_id, owner_id, fields, deleted_field_ids, f_archived }
         });

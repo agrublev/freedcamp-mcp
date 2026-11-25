@@ -604,6 +604,34 @@ export const COVERAGE = [
         body: { project_name: "New2", group_name: "Fresh" }
     },
     {
+        // app_ids and nested changed_users pass through; a role of 0 must survive.
+        tool: "fc_add_project",
+        args: {
+            project_name: "New3",
+            group_id: "g1",
+            app_ids: [2, 4, 19],
+            changed_users: {
+                added: [
+                    { email: "a@example.com", name: "A B", context_role_id: 0 },
+                    { email: "c@example.com", context_role_id: -1 }
+                ]
+            }
+        },
+        method: "POST",
+        path: "/projects",
+        body: {
+            project_name: "New3",
+            group_id: "g1",
+            app_ids: [2, 4, 19],
+            changed_users: {
+                added: [
+                    { email: "a@example.com", name: "A B", context_role_id: 0 },
+                    { email: "c@example.com", context_role_id: -1 }
+                ]
+            }
+        }
+    },
+    {
         tool: "fc_edit_project",
         args: { project_id: "77", project_name: "Renamed" },
         method: "POST",
