@@ -78,15 +78,29 @@ describe("fetchTasks filter → query mapping", () => {
         assert.ok(!("due_date[to]" in q), "omitted filter must not be sent");
     });
 
-    test("explicit null filter values are rejected by the input schema (Opt is not nullable)", async () => {
-        // schemas.js pins .optional() only: MCP clients omit fields instead of
-        // sending null, so a literal null is invalid input and must not hit the API.
+    test("null filter values are dropped and scalar assigned_to_id is wrapped", async () => {
+        // Some MCP clients send null for unset filters and a bare number for
+        // assigned_to_id; FetchTasksSchema normalizes both instead of rejecting.
         api.reset();
         const result = await mcp.callRaw("fc_fetch_tasks", {
-            filters: { due_date_to: null }
+            filters: { assigned_to_id: 42, order_priority: null, due_date_to: null }
+        });
+        assert.notEqual(result.isError, true);
+        const req = api.requests.find((r) => r.path === "/tasks");
+        assert.deepEqual(stripAuth(req.query), {
+            limit: "200",
+            offset: "0",
+            "assigned_to_id[]": "42"
+        });
+    });
+
+    test("invalid order_priority values are still rejected", async () => {
+        api.reset();
+        const result = await mcp.callRaw("fc_fetch_tasks", {
+            filters: { order_priority: "sideways" }
         });
         assert.equal(result.isError, true);
-        assert.match(result.content[0].text, /due_date_to/);
+        assert.match(result.content[0].text, /order_priority/);
         assert.equal(api.requests.length, 0);
     });
 

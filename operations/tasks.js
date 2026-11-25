@@ -5,11 +5,34 @@ export const FetchTaskSchema = z.object({
     task_id: z.string().describe("ID of the Freedcamp task to fetch.")
 });
 
+const ARRAY_FILTERS = ["status", "assigned_to_id"];
+
+// Some MCP clients send null for unset filters and a bare scalar where an
+// array is expected (e.g. assigned_to_id: 123). Drop nulls and wrap scalars so
+// those calls validate instead of failing.
+const normalizeTaskFilters = (raw) => {
+    if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return raw;
+    const out = {};
+    for (const [key, value] of Object.entries(raw)) {
+        if (value === null || value === undefined) continue;
+        if (ARRAY_FILTERS.includes(key)) {
+            out[key] = (Array.isArray(value) ? value : [value]).map((v) =>
+                key === "assigned_to_id" ? String(v) : v
+            );
+        } else if (key === "created_by_id") {
+            out[key] = String(value);
+        } else {
+            out[key] = value;
+        }
+    }
+    return out;
+};
+
 export const FetchTasksSchema = PaginationSchema.extend({
     project_id: Opt(z.string()).describe(
         "Restrict results to this project ID. Omit to fetch tasks across all accessible projects."
     ),
-    filters: Opt(
+    filters: z.preprocess(normalizeTaskFilters, Opt(
         z.object({
             status: Opt(
                 z.array(
@@ -55,7 +78,7 @@ export const FetchTasksSchema = PaginationSchema.extend({
                 "Sort results by due date: 'asc' (soonest first) or 'desc' (latest first)."
             )
         })
-    ).describe("Optional filters to narrow down the task list.")
+    )).describe("Optional filters to narrow down the task list.")
 });
 
 export const AddTaskSchema = z.object({
