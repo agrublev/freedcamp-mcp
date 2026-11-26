@@ -107,3 +107,13 @@ scripts/
 - Adding a new tool: add Zod schema in `operations/<entity>.js`, add tool entry in the `tools` array in `index.js`, add case in the switch, add handler method in `fc-handler.js`.
 - Version lives in two places: `package.json` and `common/version.js` — always use `scripts/release.js` to bump both.
 - The `session.json` file at repo root is runtime state (auth token cache), not source. Don't commit it.
+
+## Commit, Push, Release
+
+When asked to commit, push, or release changes:
+
+1. Commit **all** changed and untracked files (respecting `.gitignore`; never `session.json`, `.env`, or other secrets).
+2. Group related changes into separate commits, one per logical change. Follow the repo's message style: `[AREA] type short description` (e.g. `[TASKS] fix normalize null filters`, `[HTTP] feat add /mcp/health version endpoint`).
+3. Push to the current branch.
+4. Run `./scripts/release.js` (patch by default; `minor`/`major` only if asked). It bumps the version, commits, tags, and pushes — the push to `master` triggers the deploy workflow.
+5. Never hand-edit the version in `package.json` or `common/version.js`; leave that to the release script.
