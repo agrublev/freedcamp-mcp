@@ -301,6 +301,18 @@ All tools are prefixed with `fc_`.
 
 ---
 
+## Releasing
+
+After committing your changes, run:
+
+```bash
+./scripts/release.js          # patch: 2.2.0 -> 2.2.1
+./scripts/release.js minor    # 2.2.0 -> 2.3.0
+./scripts/release.js major    # 2.2.0 -> 3.0.0
+```
+
+It bumps the version in `package.json` and `common/version.js`, commits, tags `vX.Y.Z`, and pushes. The push to `master` triggers the deploy workflow; check the live version at `https://mcp.freedcamp.com/mcp/health`.
+
 ## Links
 
 - **Documentation:** [mcp-docs.freedcamp.top](https://mcp-docs.freedcamp.top)
