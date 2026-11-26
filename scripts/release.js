@@ -58,6 +58,5 @@ run(`git commit -m "chore(release): v${nextVersion}"`);
 run(`git tag v${nextVersion}`);
 run(`git push`);
 run(`git push --tags`);
-run(`npm publish`);
 
 console.log(`\nReleased v${nextVersion}`);
