@@ -20,6 +20,7 @@ import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middlew
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { FreedcampOAuthProvider } from "./oauth.js";
+import { VERSION } from "./common/version.js";
 
 // Sessions with no request (and no open GET stream) for this long are closed.
 // Most clients never send DELETE /mcp, so without this, sessions accumulate
@@ -303,7 +304,7 @@ export async function startHttpServer({ buildServer, handlerForToken, dropHandle
         await session.transport.handleRequest(req, res);
     });
 
-    app.get("/healthz", (_req, res) => res.json({ ok: true }));
+    app.get(["/healthz", "/mcp/health"], (_req, res) => res.json({ ok: true, version: VERSION }));
 
     return await new Promise((resolve, reject) => {
         const listener = app.listen(port, host, () => {
